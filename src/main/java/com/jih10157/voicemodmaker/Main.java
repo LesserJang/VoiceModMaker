@@ -54,8 +54,8 @@ public class Main {
 
         Scanner scanner = new Scanner(System.in);
         loop:
-        while (scanner.hasNext()) {
-            String str = scanner.next();
+        while (scanner.hasNextLine()) {
+            String str = scanner.nextLine();
             switch (mode) {
                 case DEFAULT_MODE:
                     switch (str) {
