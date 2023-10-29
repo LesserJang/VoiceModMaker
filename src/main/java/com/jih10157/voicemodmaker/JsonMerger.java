@@ -86,7 +86,14 @@ public class JsonMerger {
             String folder = (String) value.get("path");
             String name = (String) value.get("name");
             Path path = Paths.get(folder, name + ".wem");
-            map.put(hash, new Voice(path, null, null));
+
+            String talker = null;
+            String talkerByPath = getTalkerByPath(path);
+            if (talkerByPath != null) {
+                talker = talkerByPath;
+            }
+
+            map.put(hash, new Voice(path, talker, null));
         }
 
         int count = 0;
@@ -190,6 +197,12 @@ public class JsonMerger {
             return new AbstractMap.SimpleEntry<>(entry.getKey(), obj);
         }).collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue));
 
+//        talkerMap.entrySet().stream()
+//                .sorted(Comparator.comparing(e -> e.getValue().size(), Comparator.reverseOrder()))
+//                .limit(130)
+//                .forEach(e -> {
+//            System.out.println(e.getKey() + " : " + e.getValue().size() + "개");
+//        });
 
         JSONObject root = new JSONObject();
         root.put("mapping", dataMap);

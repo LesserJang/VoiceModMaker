@@ -69,6 +69,10 @@ public class Main {
                             break;
                         case "3":
                             break loop;
+                        case "무음":
+                            Silent.changeSilent(TOOL_PATH.resolve("무음.wav"), WORK_PATH);
+                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
+                            break;
                         default:
                             System.out.println("\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
                             break;
@@ -314,6 +318,14 @@ public class Main {
                 throw new RuntimeException("path-to-hash.json 파일을 찾을 수 없습니다.");
             }
             Files.copy(stream, c);
+        }
+        Path d = TOOL_PATH.resolve("무음.wav");
+        if (Files.notExists(d)) {
+            InputStream stream = Main.class.getResourceAsStream("/무음.wav");
+            if (stream == null) {
+                throw new RuntimeException("무음.wav 파일을 찾을 수 없습니다.");
+            }
+            Files.copy(stream, d);
         }
     }
 
