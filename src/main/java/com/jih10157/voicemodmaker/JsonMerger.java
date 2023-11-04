@@ -14,6 +14,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
@@ -308,6 +309,8 @@ public class JsonMerger {
         }
 
         Map<String, List<String>> talkerMap = new ConcurrentHashMap<>();
+        Map<String, AtomicInteger> dataCountKr = new ConcurrentHashMap<>();
+        Map<String, AtomicInteger> dataCountJp = new ConcurrentHashMap<>();
 
         Map<String, JSONObject> dataMap = voices.entrySet().parallelStream().map(entry -> {
             JSONObject obj = new JSONObject();
@@ -315,6 +318,11 @@ public class JsonMerger {
             if (entry.getValue().talker != null) {
                 obj.put("talker", entry.getValue().talker);
                 talkerMap.computeIfAbsent(entry.getValue().talker, set -> Collections.synchronizedList(new ArrayList<>())).add(entry.getKey());
+                if (entry.getValue().path.startsWith("Korean")) {
+                    dataCountKr.computeIfAbsent(entry.getValue().talker, s -> new AtomicInteger()).incrementAndGet();
+                } else if (entry.getValue().path.startsWith("Japanese")) {
+                    dataCountJp.computeIfAbsent(entry.getValue().talker, s -> new AtomicInteger()).incrementAndGet();
+                }
             }
             if (entry.getValue().content != null) {
                 obj.put("content", entry.getValue().content);
@@ -322,12 +330,30 @@ public class JsonMerger {
             return new AbstractMap.SimpleEntry<>(entry.getKey(), obj);
         }).collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue));
 
-        talkerMap.entrySet().stream()
-                .sorted(Comparator.comparing(e -> e.getValue().size(), Comparator.reverseOrder()))
-//                .limit(130)
+
+        Path voiceCount = DATA_FOLDER.resolve("voice-count.txt");
+
+        StringBuilder sb = new StringBuilder();
+
+        dataCountKr.entrySet().stream()
+                .sorted(Comparator.comparing(e -> e.getValue().get(), Comparator.reverseOrder()))
+                .limit(100)
                 .forEach(e -> {
-                    System.out.println(e.getKey() + " : " + e.getValue().size() + "개");
+                    sb.append(e.getKey()).append(" : ").append(e.getValue().get()).append("개\n");
                 });
+        sb.append("===================================\n");
+        dataCountJp.entrySet().stream()
+                .sorted(Comparator.comparing(e -> e.getValue().get(), Comparator.reverseOrder()))
+                .limit(100)
+                .forEach(e -> {
+                    sb.append(e.getKey()).append(" : ").append(e.getValue().get()).append("개\n");
+                });
+
+        try {
+            Files.write(voiceCount, sb.toString().getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
         JSONObject root = new JSONObject();
         root.put("mapping", dataMap);
