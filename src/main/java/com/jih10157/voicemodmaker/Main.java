@@ -1,5 +1,6 @@
 package com.jih10157.voicemodmaker;
 
+import com.jih10157.voicemodmaker.util.FNV1_64Hash;
 import com.jih10157.voicemodmaker.util.MD5;
 import com.jih10157.voicemodmaker.util.Unzip;
 import com.jih10157.voicemodmaker.util.WwiseUtil;
@@ -15,6 +16,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -37,13 +41,23 @@ public class Main {
     private static final int VOICE_EXTRACT_CHARACTER_MODE = 3;
     private static final int VOICE_EXTRACT_CHARACTER_PATH_MODE_FIRST = 4;
     private static final int VOICE_EXTRACT_CHARACTER_PATH_MODE_SECOND = 5;
-    private static final int VOICE_MOD_MAKE_MODE = 6;
+    private static final int VOICE_MOD_MAKE_SEL_NAME_MODE = 6;
+    private static final int VOICE_MOD_MAKE_SET_LANGUAGE_MODE = 7;
     private static JSONObject voiceSetsJson = null;
     private static JSONObject hashToFolderJson = null;
-    private static JSONObject pathToHashJson = null;
+    private static JSONObject checksumJson = null;
     private static int mode = DEFAULT_MODE;
     private static String character = "";
+    private static String modName = "";
 
+//    private static final String[] SILENTS = new String[] {
+//            "아이테르", "케이아", "알베도", "미카", "베넷",
+//            "레이저", "다이루크", "백출", "행추", "중운",
+//            "종려", "소", "토마", "카미사토 아야토", "시카노인 헤이조",
+//            "고로", "아라타키 이토", "카에데하라 카즈하", "타이나리", "사이노",
+//            "알하이탐", "카베", "방랑자", "리니", "프레미네",
+//            "느비예트", "라이오슬리"
+//    };
 
     public static void main(String[] args) throws IOException, InterruptedException {
         setupFolder();
@@ -64,15 +78,25 @@ public class Main {
                             System.out.println("1. 캐릭터 기반 추출 2. 폴더 또는 파일 기반 추출 3. 캐릭터 + 폴더 4. 이전으로");
                             break;
                         case "2":
-                            mode = VOICE_MOD_MAKE_MODE;
+                            mode = VOICE_MOD_MAKE_SEL_NAME_MODE;
                             System.out.println("보이스 모드의 이름을 입력해주세요.");
                             break;
+//                        case "무음":
+//                            Silent.changeSilent(TOOL_PATH.resolve("무음.wav"), WORK_PATH);
+//                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
+//                            break;
+//                        case "무음리스트":
+//                            for (String character : SILENTS) {
+//                                clearFolder(WORK_PATH);
+//                                loadCharacter(character);
+//                                Silent.changeSilent(TOOL_PATH.resolve("무음.wav"), WORK_PATH);
+//                                createVoiceMod(character + " 무음");
+//                            }
+//                            System.out.println("완료됨");
+//                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
+//                            break;
                         case "3":
                             break loop;
-                        case "무음":
-                            Silent.changeSilent(TOOL_PATH.resolve("무음.wav"), WORK_PATH);
-                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
-                            break;
                         default:
                             System.out.println("\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
                             break;
@@ -88,7 +112,7 @@ public class Main {
                         case "2":
                             mode = VOICE_EXTRACT_PATH_MODE;
                             System.out.println("폴더 또는 파일을 입력해주세요.");
-                            System.out.println("ex. 'VO_friendship\\VO_tighnari' 'VO_LQ' 'VO_gameplay\\VO_neuvillette\\vo_neuvillette_chest_open_01.wem'");
+                            System.out.println("ex. 'Korean\\VO_friendship\\VO_tighnari' 'Japanese\\VO_LQ' 'Korean\\VO_gameplay\\VO_neuvillette\\vo_neuvillette_chest_open_01.wem'");
                             break;
                         case "3":
                             mode = VOICE_EXTRACT_CHARACTER_PATH_MODE_FIRST;
@@ -124,21 +148,58 @@ public class Main {
                     character = str;
                     mode = VOICE_EXTRACT_CHARACTER_PATH_MODE_SECOND;
                     System.out.println("폴더를 입력해주세요.");
-                    System.out.println("ex. 'VO_friendship\\VO_tighnari' 'VO_LQ'");
+                    System.out.println("ex. 'Korean\\VO_friendship\\VO_tighnari' 'Japanese\\VO_LQ'");
                     break;
                 case VOICE_EXTRACT_CHARACTER_PATH_MODE_SECOND:
                     loadCharacterInFolder(character, str);
                     mode = DEFAULT_MODE;
                     System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
                     break;
-                case VOICE_MOD_MAKE_MODE:
-                    createVoiceMod(str);
-                    mode = DEFAULT_MODE;
-                    System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
+                case VOICE_MOD_MAKE_SEL_NAME_MODE:
+                    if (isValidFileName(str)) {
+                        modName = str;
+                        mode = VOICE_MOD_MAKE_SET_LANGUAGE_MODE;
+                        System.out.println("언어를 선택해주세요.");
+                        System.out.println("1. 한국어 2. 일본어 3. 나가기");
+                    } else {
+                        System.out.println("'" + str + "' 은 유효한 폴더 이름이 아닙니다.");
+                        mode = DEFAULT_MODE;
+                        System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
+                    }
+                    break;
+                case VOICE_MOD_MAKE_SET_LANGUAGE_MODE:
+                    switch (str) {
+                        case "1":
+                            createVoiceMod(modName, 0);
+                            mode = DEFAULT_MODE;
+                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
+                            break;
+                        case "2":
+                            createVoiceMod(modName, 1);
+                            mode = DEFAULT_MODE;
+                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
+                            break;
+                        case "3":
+                            mode = DEFAULT_MODE;
+                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
+                            break;
+                        default:
+                            System.out.println("\n언어를 선택해주세요.");
+                            System.out.println("1. 한국어 2. 일본어 3. 나가기");
+                            break;
+                    }
             }
         }
         scanner.close();
         System.exit(0);
+    }
+
+    static final String ILLEGAL_EXP = "[\\\\:/%*?|\"<>]";
+    public static boolean isValidFileName(String fileName) {
+        if(fileName == null || fileName.trim().isEmpty())
+            return false;
+
+        return !Pattern.compile(ILLEGAL_EXP).matcher(fileName).find();
     }
 
     public static JSONObject getVoiceSetsJson() {
@@ -169,18 +230,18 @@ public class Main {
         return hashToFolderJson;
     }
 
-    public static JSONObject getPathToHashJson() {
-        if (pathToHashJson == null) {
-            System.out.println("path-to-hash.json 을 불러옵니다.");
+    public static JSONObject getChecksumJson() {
+        if (checksumJson == null) {
+            System.out.println("checksum.json 을 불러옵니다.");
             JSONParser parser = new JSONParser();
             try {
-                Path mappingFile = TOOL_PATH.resolve("mapping").resolve("path-to-hash.json");
-                pathToHashJson = (JSONObject) parser.parse(Files.newBufferedReader(mappingFile, StandardCharsets.UTF_8));
+                Path mappingFile = TOOL_PATH.resolve("mapping").resolve("checksum.json");
+                checksumJson = (JSONObject) parser.parse(Files.newBufferedReader(mappingFile, StandardCharsets.UTF_8));
             } catch (ParseException | IOException e) {
                 throw new RuntimeException(e);
             }
         }
-        return pathToHashJson;
+        return checksumJson;
     }
 
     public static void setupCache() throws IOException {
@@ -238,6 +299,11 @@ public class Main {
 //                }
             });
         }
+        try (Stream<Path> list = Files.list(AUDIO_CACHE_RAW_PATH)) {
+            list.forEach(p -> {
+
+            });
+        }
     }
 
     public static void setupFolder() throws IOException {
@@ -259,14 +325,15 @@ public class Main {
         if (Files.notExists(RESULT_PATH)) {
             Files.createDirectories(RESULT_PATH);
         }
-        clearTemp();
-    }
-
-    public static void clearTemp() throws IOException {
         if (Files.notExists(TEMP_PATH)) {
             Files.createDirectories(TEMP_PATH);
-        } else {
-            try (Stream<Path> list = Files.walk(TEMP_PATH)) {
+        }
+        clearFolder(TEMP_PATH);
+    }
+
+    public static void clearFolder(Path folder) {
+        if (Files.exists(folder) && Files.isDirectory(folder)) {
+            try (Stream<Path> list = Files.walk(folder)) {
                 list.sorted(Comparator.reverseOrder()).forEach(path -> {
                     try {
                         Files.deleteIfExists(path);
@@ -274,6 +341,8 @@ public class Main {
                         e.printStackTrace();
                     }
                 });
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
         }
     }
@@ -311,11 +380,11 @@ public class Main {
             }
             Files.copy(stream, b);
         }
-        Path c = mappingFolder.resolve("path-to-hash.json");
+        Path c = mappingFolder.resolve("checksum.json");
         if (Files.notExists(c)) {
-            InputStream stream = Main.class.getResourceAsStream("/path-to-hash.json");
+            InputStream stream = Main.class.getResourceAsStream("/checksum.json");
             if (stream == null) {
-                throw new RuntimeException("path-to-hash.json 파일을 찾을 수 없습니다.");
+                throw new RuntimeException("checksum.json 파일을 찾을 수 없습니다.");
             }
             Files.copy(stream, c);
         }
@@ -341,9 +410,10 @@ public class Main {
                 JSONObject obj = (JSONObject) mapping.get(s);
                 return (String) obj.get("path");
             }).map(path -> {
+                Path dest = Paths.get(path);
                 try {
                     return wemToWavFile(TOOL_PATH, AUDIO_CACHE_MAPPED_PATH.resolve(path),
-                            changeExtension(WORK_PATH.resolve(path), ".wav"));
+                            changeExtension(WORK_PATH.resolve(dest.subpath(1, dest.getNameCount())), ".wav"));
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -351,10 +421,7 @@ public class Main {
 
             while (!result.parallelStream().allMatch(Future::isDone)) {
                 System.out.println("진행중... " + result.parallelStream().filter(Future::isDone).count() + "/" + result.size());
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException ignored) {
-                }
+                waitFor(1, TimeUnit.SECONDS, () -> result.parallelStream().allMatch(Future::isDone));
             }
             System.out.println(result.size() + "개의 파일이 처리됨. 진행 시간: " + (System.currentTimeMillis() - mills) + "ms");
         } else {
@@ -362,36 +429,42 @@ public class Main {
         }
     }
 
-    public static void loadPath(String path) throws IOException, InterruptedException {
+    public static void loadPath(String path) throws IOException {
         long mills = System.currentTimeMillis();
         Path targetPath = AUDIO_CACHE_MAPPED_PATH.resolve(path);
         if (!Files.exists(targetPath)) {
             System.out.println("해당 폴더 또는 파일은 존재하지 않습니다. '" + targetPath + "'");
             return;
         }
+        Path dest = Paths.get(path);
+        if (dest.getNameCount() <= 1) {
+            dest = WORK_PATH;
+        } else {
+            dest = WORK_PATH.resolve(dest.subpath(1, dest.getNameCount()));
+        }
         if (Files.isDirectory(targetPath)) {
             System.out.println("다음 폴더의 보이스 추출을 시도합니다... '" + targetPath + "'");
-            Set<Future<Integer>> result = WwiseUtil.wemToWav(TOOL_PATH, targetPath, WORK_PATH.resolve(path));
+            Set<Future<Integer>> result = WwiseUtil.wemToWav(TOOL_PATH, targetPath, dest);
             while (!result.parallelStream().allMatch(Future::isDone)) {
                 System.out.println("진행중... " + result.parallelStream().filter(Future::isDone).count() + "/" + result.size());
-                Thread.sleep(1000);
+                waitFor(1, TimeUnit.SECONDS, () -> result.parallelStream().allMatch(Future::isDone));
             }
 
             System.out.println(result.size() + "개의 파일이 처리됨. 진행 시간: " + (System.currentTimeMillis() - mills) + "ms");
         } else {
             System.out.println("다음 파일의 보이스 추출을 시도합니다... '" + targetPath + "'");
-            Future<Integer> result = wemToWavFile(TOOL_PATH, targetPath, changeExtension(WORK_PATH.resolve(path), ".wav"));
+            Future<Integer> result = wemToWavFile(TOOL_PATH, targetPath, changeExtension(dest, ".wav"));
 
             while (!result.isDone()) {
                 System.out.println("진행중... 0/1");
-                Thread.sleep(100);
+                waitFor(1, TimeUnit.SECONDS, result::isDone);
             }
             System.out.println("1개의 파일이 처리됨. 진행 시간: " + (System.currentTimeMillis() - mills) + "ms");
         }
 
     }
 
-    public static void loadCharacterInFolder(String character, String pathStr) throws InterruptedException {
+    public static void loadCharacterInFolder(String character, String pathStr) {
         long mills = System.currentTimeMillis();
         Path targetPath = AUDIO_CACHE_MAPPED_PATH.resolve(pathStr);
         if (!Files.exists(targetPath)) {
@@ -414,16 +487,17 @@ public class Main {
                     Path wemFile = AUDIO_CACHE_MAPPED_PATH.resolve(s);
                     return wemFile.startsWith(targetPath);
                 }).map(path -> {
+                    Path dest = Paths.get(path);
                     try {
                         return WwiseUtil.wemToWavFile(TOOL_PATH, AUDIO_CACHE_MAPPED_PATH.resolve(path),
-                                changeExtension(WORK_PATH.resolve(path), ".wav"));
+                                changeExtension(WORK_PATH.resolve(dest.subpath(1, dest.getNameCount())), ".wav"));
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
                 }).collect(Collectors.toSet());
                 while (!result.parallelStream().allMatch(Future::isDone)) {
                     System.out.println("진행중... " + result.parallelStream().filter(Future::isDone).count() + "/" + result.size());
-                    Thread.sleep(1000);
+                    waitFor(1, TimeUnit.SECONDS, () -> result.parallelStream().allMatch(Future::isDone));
                 }
 
                 System.out.println(result.size() + "개의 파일이 처리됨. 진행 시간: " + (System.currentTimeMillis() - mills) + "ms");
@@ -437,31 +511,23 @@ public class Main {
 
     // folder = work\
     public static void generateChecksumJson(Path folder) throws IOException {
+        System.out.println("체크섬 시작");
         Set<Path> paths = new HashSet<>();
         try (Stream<Path> stream = Files.walk(folder)) {
             stream.filter(p -> p.getFileName().toString().endsWith(".wav")).forEach(paths::add);
         }
 
-        Map<String, JSONObject> mapping = (Map<String, JSONObject>) getVoiceSetsJson().get("mapping");
-        Map<String, String> pathToHash = mapping.entrySet().parallelStream().collect(Collectors.toMap(entry -> {
-            String pathStr = (String) entry.getValue().get("path");
-            return pathStr.substring(0, pathStr.lastIndexOf('.')) + ".wav";
-        }, Map.Entry::getKey));
-
-
         Map<String, JSONObject> result = paths.parallelStream().map(path -> {
             String checksum = MD5.checksum(path);
-            String fileHash = pathToHash.get(WORK_PATH.relativize(path).toString());
             JSONObject newObj = new JSONObject();
             newObj.put("checksum", checksum);
-            newObj.put("hash", fileHash);
             return new AbstractMap.SimpleEntry<>(WORK_PATH.relativize(path).toString(), newObj);
         }).collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue));
-        Files.write(WORK_PATH.resolve("path-to-hash.json"), new JSONObject(result).toJSONString().getBytes(StandardCharsets.UTF_8),
+        Files.write(WORK_PATH.resolve("checksum-jp.json"), new JSONObject(result).toJSONString().getBytes(StandardCharsets.UTF_8),
                 StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE);
     }
 
-    public static void createVoiceMod(String name) throws IOException, InterruptedException {
+    public static void createVoiceMod(String name, int language) throws IOException, InterruptedException {
         Path modPath = RESULT_PATH.resolve(name);
         if (Files.exists(modPath)) {
             System.out.println("폴더 " + modPath + " 가 이미 존재합니다.");
@@ -469,20 +535,21 @@ public class Main {
         }
         Files.createDirectories(modPath);
 
-        clearTemp();
-        JSONObject pathToHash = getPathToHashJson();
+        clearFolder(TEMP_PATH);
+        JSONObject pathToChecksum = (JSONObject) getChecksumJson().get(language == 0 ? "kr" : "jp");
         Set<Triple<Path, String, String>> pathHashChecksum = new HashSet<>();
         try (Stream<Path> stream = Files.walk(WORK_PATH)) {
             stream.filter(path -> path.getFileName().toString().endsWith(".wav"))
                     .forEach(path -> {
-                        JSONObject hashAndChecksum = (JSONObject) pathToHash.get(WORK_PATH.relativize(path).toString());
-                        if (hashAndChecksum == null) {
+                        Path relPath = WORK_PATH.relativize(path);
+                        JSONObject obj = (JSONObject) pathToChecksum.get(relPath.toString());
+                        if (obj == null) {
                             System.out.println("wav 파일 '" + path + "' 의 원본을 찾을 수 없습니다.");
                             return;
                         }
-                        String hash = (String) hashAndChecksum.get("hash");
-                        String checksum = (String) hashAndChecksum.get("checksum");
-                        pathHashChecksum.add(new Triple<>(path, hash, checksum));
+                        String checksum = (String) obj.get("checksum");
+                        pathHashChecksum.add(new Triple<>(path, FNV1_64Hash.fnv1_64(
+                                changeExtension(relPath, ".wem").toString().toLowerCase()), checksum));
                     });
         }
 
@@ -536,6 +603,17 @@ public class Main {
     public static String getFileName(Path path) {
         String fileName = path.getFileName().toString();
         return fileName.substring(0, fileName.lastIndexOf('.'));
+    }
+
+    public static void waitFor(long timeout, TimeUnit timeUnit, Supplier<Boolean> end) {
+        long mills = timeUnit.toMillis(timeout) + System.currentTimeMillis();
+        while (!end.get() && System.currentTimeMillis() < mills) {
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     public static class Triple<T, U, V> {

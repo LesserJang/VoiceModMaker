@@ -1,13 +1,12 @@
 package com.jih10157.voicemodmaker.util;
 
+import com.jih10157.voicemodmaker.Main;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -23,7 +22,7 @@ public class WwiseUtil {
             list.filter(path -> path.getFileName().toString().endsWith(".pck")).forEach(paths::add);
         }
         System.out.println("pck 파일: " + paths.size() + "개");
-        if (paths.size() == 0) {
+        if (paths.isEmpty()) {
             return;
         }
 
@@ -34,17 +33,23 @@ public class WwiseUtil {
 
         while (!result.stream().allMatch(Future::isDone)) {
             System.out.println("진행중... " + result.stream().filter(Future::isDone).count() + "/" + result.size());
-            Thread.sleep(1000);
+            Main.waitFor(1, TimeUnit.SECONDS, () -> result.parallelStream().allMatch(Future::isDone));
         }
         System.out.println(result.size() + "개의 파일이 언팩됨. 진행 시간: " + (System.currentTimeMillis() - mills) + "ms");
 
+//        Set<String> hashes = new HashSet<>();
 //        JSONObject obj = new JSONObject();
 //        try (Stream<Path> list = Files.walk(dest)) {
 //            list.filter(path -> path.getFileName().toString().endsWith(".wem"))
 //                    .map(path -> new AbstractMap.SimpleEntry<>(getFileName(path), path.getParent().getFileName().toString()))
-//                    .forEach(e -> obj.put(e.getKey(), e.getValue()));
+//                    .forEach(e -> {
+//                        obj.put(e.getKey(), e.getValue());
+//                        hashes.add(e.getKey());
+//                    });
 //        }
-//        Files.write(dest.resolve("mapping-folder.json"), obj.toJSONString().getBytes(StandardCharsets.UTF_8),
+//        Files.write(dest.resolve("hash-to-folder-jp.json"), obj.toJSONString().getBytes(StandardCharsets.UTF_8),
+//                StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE);
+//        Files.write(dest.resolve("list.txt"), String.join("\n", hashes).getBytes(StandardCharsets.UTF_8),
 //                StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE);
     }
 
@@ -54,11 +59,11 @@ public class WwiseUtil {
             list.filter(path -> path.getFileName().toString().endsWith(".wem")).forEach(paths::add);
         }
         System.out.println("wem 파일: " + paths.size() + "개");
-        if (paths.size() == 0) {
+        if (paths.isEmpty()) {
             return new HashSet<>();
         }
         return paths.parallelStream().map(path -> {
-            Path wavFile = changeExtension(dest.resolve(wemPath.relativize(path)), ".wav");
+            Path wavFile = changeExtension(dest.resolve(subPath(wemPath.relativize(path))), ".wav");
             try {
                 return wemToWavFile(tool, path, wavFile);
             } catch (IOException e) {
@@ -83,7 +88,7 @@ public class WwiseUtil {
         Path pathCache = toolFolder.resolve("WwisePath.txt");
         if (Files.exists(pathCache)) {
             List<String> strs = Files.readAllLines(pathCache, StandardCharsets.UTF_8);
-            if (strs.size() != 0) {
+            if (!strs.isEmpty()) {
                 Path file = Paths.get(strs.get(0));
                 if (Files.exists(file) && Files.isRegularFile(file)) {
                     wwiseConsole = file;
@@ -178,5 +183,9 @@ public class WwiseUtil {
     public static String getFileName(Path path) {
         String fileName = path.getFileName().toString();
         return fileName.substring(0, fileName.lastIndexOf('.'));
+    }
+
+    public static Path subPath(Path path) {
+        return path.subpath(1, path.getNameCount());
     }
 }

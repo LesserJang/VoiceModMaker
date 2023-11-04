@@ -1,5 +1,6 @@
 package com.jih10157.voicemodmaker;
 
+import com.jih10157.voicemodmaker.util.FNV1_64Hash;
 import org.jetbrains.annotations.Nullable;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -13,6 +14,8 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -24,42 +27,347 @@ public class JsonMerger {
 
     private static final Path DATA_FOLDER = Paths.get("data");
 
-    // https://github.com/Escartem/AnimeWwise/tree/dev/mapping
-    private static final Path ESCARTEM = DATA_FOLDER.resolve("mappingKorean.json");
-    // https://github.com/AI-Hobbyist/Genshin_Datasets/tree/main/Index%20%26%20Script/AI%20Hobbyist%20Version/Index/4.1
-    private static final Path HOBBYIST = DATA_FOLDER.resolve("KR_output.json");
     // https://github.com/w4123/GenshinVoice
     private static final Path W4123 = DATA_FOLDER.resolve("result.json");
+    // https://github.com/Escartem/AnimeWwise/tree/master/mapping
+    private static final Path ESCARTEM_KR = DATA_FOLDER.resolve("Korean").resolve("mappingKorean.json");
+    private static final Path ESCARTEM_JP = DATA_FOLDER.resolve("Japanese").resolve("mappingJapanese.json");
+    private static final Path ESCARTEM_EN = DATA_FOLDER.resolve("English").resolve("mappingEnglish.json");
+    private static final Path ESCARTEM_CN = DATA_FOLDER.resolve("Chinese").resolve("mappingChinese.json");
+    // https://github.com/AI-Hobbyist/Genshin_Datasets/tree/main/Index%20%26%20Script/AI%20Hobbyist%20Version/Index/4.1
+    private static final Path HOBBYIST_KR = DATA_FOLDER.resolve("Korean").resolve("KR_output.json");
+    private static final Path HOBBYIST_JP = DATA_FOLDER.resolve("Japanese").resolve("JP_output.json");
+    private static final Path HOBBYIST_EN = DATA_FOLDER.resolve("English").resolve("EN_output.json");
+    private static final Path HOBBYIST_CN = DATA_FOLDER.resolve("Chinese").resolve("CHS_output.json");
 
-    private static final Path REAL_LIST = DATA_FOLDER.resolve("list.txt");
+    private static final Path REAL_LIST_KR = DATA_FOLDER.resolve("Korean").resolve("list.txt");
+    private static final Path REAL_LIST_JP = DATA_FOLDER.resolve("Japanese").resolve("list.txt");
 
     private static final Path RESULT = DATA_FOLDER.resolve("voicesets.json");
 
     public static void main(String[] args) throws ParseException {
+//        merge();
+        collectPath();
+    }
+
+
+    public static void collectPath() {
         JSONParser parser = new JSONParser();
 
-        JSONObject jsonEscartem;
+        Set<JSONObject> jsonEscartem = new HashSet<>();
+        Set<JSONObject> jsonHobbyist = new HashSet<>();
+        JSONObject jsonW4123;
+
         try {
-            jsonEscartem = (JSONObject) parser.parse(Files.newBufferedReader(ESCARTEM, StandardCharsets.UTF_8));
+            jsonEscartem.add((JSONObject) parser.parse(Files.newBufferedReader(ESCARTEM_KR, StandardCharsets.UTF_8)));
+            jsonEscartem.add((JSONObject) parser.parse(Files.newBufferedReader(ESCARTEM_JP, StandardCharsets.UTF_8)));
+            jsonEscartem.add((JSONObject) parser.parse(Files.newBufferedReader(ESCARTEM_EN, StandardCharsets.UTF_8)));
+            jsonEscartem.add((JSONObject) parser.parse(Files.newBufferedReader(ESCARTEM_CN, StandardCharsets.UTF_8)));
+            jsonHobbyist.add((JSONObject) parser.parse(Files.newBufferedReader(HOBBYIST_KR, StandardCharsets.UTF_8)));
+            jsonHobbyist.add((JSONObject) parser.parse(Files.newBufferedReader(HOBBYIST_JP, StandardCharsets.UTF_8)));
+            jsonHobbyist.add((JSONObject) parser.parse(Files.newBufferedReader(HOBBYIST_EN, StandardCharsets.UTF_8)));
+            jsonHobbyist.add((JSONObject) parser.parse(Files.newBufferedReader(HOBBYIST_CN, StandardCharsets.UTF_8)));
+            jsonW4123 = (JSONObject) parser.parse(Files.newBufferedReader(W4123, StandardCharsets.UTF_8));
+        } catch (IOException | ParseException e) {
+            throw new RuntimeException(e);
+        }
+
+        Set<String> paths = new HashSet<>();
+
+        for (Object e : jsonW4123.entrySet()) {
+            Map.Entry<String, JSONObject> entry = (Map.Entry<String, JSONObject>) e;
+
+            JSONObject value = entry.getValue();
+
+            Path path = Paths.get(((String) value.get("fileName")));
+            paths.add(path.subpath(1, path.getNameCount()).toString());
+        }
+        System.out.println("w4123 갯수: " + paths.size());
+
+        for (JSONObject json : jsonHobbyist) {
+            for (Object e : json.entrySet()) {
+                Map.Entry<String, JSONObject> entry = (Map.Entry<String, JSONObject>) e;
+
+                JSONObject value = entry.getValue();
+                String sourceFile = (String) value.get("sourceFileName");
+                if (sourceFile == null) {
+                    System.out.println("누락된 sourceFileName: " + entry.getKey());
+                    continue;
+                }
+                Path path = Paths.get(sourceFile);
+                paths.add(path.toString());
+            }
+            System.out.println("Hobbyist 갯수: " + paths.size());
+        }
+
+        for (JSONObject json : jsonEscartem) {
+            for (Object e : json.entrySet()) {
+                Map.Entry<String, JSONObject> entry = (Map.Entry<String, JSONObject>) e;
+
+                JSONObject value = entry.getValue();
+                String folder = (String) value.get("path");
+                String name = (String) value.get("name");
+                Path path = Paths.get(folder, name + ".wem");
+                paths.add(path.toString());
+            }
+            System.out.println("Escartem 갯수: " + paths.size());
+        }
+
+
+        Set<String> hashSet = new HashSet<>(1756600);
+        try {
+            hashSet.addAll(Files.readAllLines(REAL_LIST_KR, StandardCharsets.UTF_8));
+            hashSet.addAll(Files.readAllLines(REAL_LIST_JP, StandardCharsets.UTF_8));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        JSONObject jsonHobbyist;
+
+        Map<String, Voice> voices = paths.parallelStream()
+                .flatMap(e -> {
+                    Set<Map.Entry<String, String>> entrySet = new HashSet<>();
+                    String hash = FNV1_64Hash.fnv1_64(("Korean\\" + e).toLowerCase());
+                    if (hashSet.contains(hash)) {
+                        entrySet.add(new AbstractMap.SimpleEntry<>(hash, "Korean\\" + e));
+                    }
+                    hash = FNV1_64Hash.fnv1_64(("Japanese\\" + e).toLowerCase());
+                    if (hashSet.contains(hash)) {
+                        entrySet.add(new AbstractMap.SimpleEntry<>(hash, "Japanese\\" + e));
+                    }
+                    return entrySet.stream();
+                })
+                .filter(Objects::nonNull)
+                .filter(distinctByKey(Map.Entry::getKey))
+                .map(e -> {
+                    Path path = Paths.get(e.getValue());
+                    return new AbstractMap.SimpleEntry<>(e.getKey(), new Voice(path, getTalkerByPath(path.subpath(1, path.getNameCount())), null));
+                })
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        System.out.println("보이스 개수: " + voices.size());
+
+        jsonEscartem = null;
+        jsonHobbyist = null;
+        JSONObject jsonHobbyistKR;
+        JSONObject jsonHobbyistJP;
+
+        Map<String, String> talkerCachedMap = new ConcurrentHashMap<>();
+
         try {
-            jsonHobbyist = (JSONObject) parser.parse(Files.newBufferedReader(HOBBYIST, StandardCharsets.UTF_8));
+            jsonHobbyistKR = (JSONObject) parser.parse(Files.newBufferedReader(HOBBYIST_KR, StandardCharsets.UTF_8));
+            jsonHobbyistJP = (JSONObject) parser.parse(Files.newBufferedReader(HOBBYIST_JP, StandardCharsets.UTF_8));
+        } catch (IOException | ParseException e) {
+            throw new RuntimeException(e);
+        }
+        for (Object e : jsonHobbyistKR.entrySet()) {
+            Map.Entry<String, JSONObject> entry = (Map.Entry<String, JSONObject>) e;
+
+            JSONObject value = entry.getValue();
+
+            String hash;
+            String sourceFile = (String) value.get("sourceFileName");
+            Path path = null;
+            if (sourceFile == null) {
+                hash = entry.getKey();
+                if (!voices.containsKey(hash)) {
+                    continue;
+                }
+            } else {
+                path = Paths.get(sourceFile);
+                hash = FNV1_64Hash.fnv1_64(("Korean\\" + path).toLowerCase());
+                if (!voices.containsKey(hash)) {
+                    continue;
+                }
+            }
+
+            String voiceContent = (String) value.get("voiceContent");
+            String talkName = (String) value.get("talkName");
+            String avatarName = (String) value.get("avatarName");
+            if ("PlayerGirl".equals(avatarName)) {
+                talkName = "루미네";
+            } else if ("PlayerBoy".equals(avatarName)) {
+                talkName = "아이테르";
+            }
+
+            talkName = preprocess(talkName);
+
+            if (path != null) {
+                String talkerByPath = getTalkerByPath(path);
+                if (talkerByPath != null) {
+                    talkName = talkerByPath;
+                }
+            }
+
+            Voice origin = voices.get(hash);
+            origin.content = voiceContent;
+            if (origin.talker == null) {
+                origin.talker = talkName;
+            }
+        }
+
+        for (Object e : jsonHobbyistJP.entrySet()) {
+            Map.Entry<String, JSONObject> entry = (Map.Entry<String, JSONObject>) e;
+
+            JSONObject value = entry.getValue();
+
+            String hash;
+            String sourceFile = (String) value.get("sourceFileName");
+            Path path = null;
+            if (sourceFile == null) {
+                hash = entry.getKey();
+            } else {
+                path = Paths.get(sourceFile);
+                hash = FNV1_64Hash.fnv1_64(("Japanese\\" + path).toLowerCase());
+            }
+            if (!voices.containsKey(hash)) {
+                continue;
+            }
+
+            Voice origin = voices.get(hash);
+            origin.content = (String) value.get("voiceContent");
+
+            String jpTalker = preprocess((String) value.get("talkName"));
+            if (origin.talker != null) {
+                if (jpTalker != null && !talkerCachedMap.containsKey(jpTalker)) {
+                    talkerCachedMap.put(jpTalker, origin.talker);
+                }
+                continue;
+            }
+
+            String avatarName = (String) value.get("avatarName");
+            String talkName = avatarName != null ? getNameByEnglish(avatarName.toLowerCase()) : null;
+
+            if (talkName != null) {
+                if (jpTalker != null && !talkerCachedMap.containsKey(jpTalker)) {
+                    talkerCachedMap.put(jpTalker, talkName);
+                }
+            } else {
+                if (path != null) {
+                    String krHash = FNV1_64Hash.fnv1_64(("Korean\\" + path).toLowerCase());
+                    if (voices.containsKey(krHash)) {
+                        Voice krVoice = voices.get(krHash);
+                        if (krVoice.talker != null) {
+                            talkName = krVoice.talker;
+                            if (jpTalker != null && !talkerCachedMap.containsKey(jpTalker)) {
+                                talkerCachedMap.put(jpTalker, krVoice.talker);
+                            }
+                        }
+                    }
+                }
+                if (talkName == null && jpTalker != null) {
+                    talkName = talkerCachedMap.getOrDefault(jpTalker, jpTalker);
+                }
+            }
+
+            if (origin.talker == null || talkName != null) {
+                origin.talker = talkName;
+            }
+        }
+
+        for (Object e : jsonW4123.entrySet()) {
+            Map.Entry<String, JSONObject> entry = (Map.Entry<String, JSONObject>) e;
+
+            JSONObject value = entry.getValue();
+            if (!"KR".equals(value.get("language")) && !"JP".equals(value.get("language"))) {
+                continue;
+            }
+
+            boolean isKR = "KR".equals(value.get("language"));
+            Path path = Paths.get(((String) value.get("fileName")));
+            String hash = FNV1_64Hash.fnv1_64(path.toString().toLowerCase());
+            if (!voices.containsKey(hash)) {
+                continue;
+            }
+            Voice origin = voices.get(hash);
+            if (origin.content == null) {
+                origin.content = (String) value.get("text");
+            }
+
+            if (isKR) {
+                String talker = preprocess((String) value.get("npcName"));
+                if (origin.talker == null) {
+                    origin.talker = talker;
+                } else if (talker != null && !origin.talker.equals(talker)) {
+//                    System.out.println("2 이름과 파일 값 기반 이름이 다릅니다. origin: " + origin.talker + " : 파일 기반: " + talker);
+                }
+            } else {
+                String jpTalker = preprocess((String) value.get("npcName"));
+                String krHash = FNV1_64Hash.fnv1_64(("Korean\\" + path.subpath(1, path.getNameCount())).toLowerCase());
+                if (voices.containsKey(krHash)) {
+                    Voice krVoice = voices.get(krHash);
+                    if (krVoice.talker != null) {
+                        origin.talker = krVoice.talker;
+                        if (jpTalker != null) {
+                            talkerCachedMap.put(jpTalker, krVoice.talker);
+                        }
+                    }
+                } else if (origin.talker == null && jpTalker != null) {
+                    origin.talker = talkerCachedMap.getOrDefault(jpTalker, jpTalker);
+//                    System.out.println("2. 일본어 음성이 한국어 음성에는 존재하지 않습니다. 파일: " + path);
+                }
+            }
+        }
+
+        Map<String, List<String>> talkerMap = new ConcurrentHashMap<>();
+
+        Map<String, JSONObject> dataMap = voices.entrySet().parallelStream().map(entry -> {
+            JSONObject obj = new JSONObject();
+            obj.put("path", entry.getValue().path.toString());
+            if (entry.getValue().talker != null) {
+                obj.put("talker", entry.getValue().talker);
+                talkerMap.computeIfAbsent(entry.getValue().talker, set -> Collections.synchronizedList(new ArrayList<>())).add(entry.getKey());
+            }
+            if (entry.getValue().content != null) {
+                obj.put("content", entry.getValue().content);
+            }
+            return new AbstractMap.SimpleEntry<>(entry.getKey(), obj);
+        }).collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue));
+
+        talkerMap.entrySet().stream()
+                .sorted(Comparator.comparing(e -> e.getValue().size(), Comparator.reverseOrder()))
+//                .limit(130)
+                .forEach(e -> {
+                    System.out.println(e.getKey() + " : " + e.getValue().size() + "개");
+                });
+
+        JSONObject root = new JSONObject();
+        root.put("mapping", dataMap);
+        root.put("talker", talkerMap);
+
+        try {
+            Files.write(RESULT, root.toJSONString().getBytes(StandardCharsets.UTF_8),
+                    StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static <T> Predicate<T> distinctByKey(Function<? super T, Object> keyExtractor) {
+        Map<Object, Boolean> map = new ConcurrentHashMap<>();
+        return t -> map.putIfAbsent(keyExtractor.apply(t), Boolean.TRUE) == null;
+    }
+
+    public static void merge() throws ParseException {
+        JSONParser parser = new JSONParser();
+
+        JSONObject jsonEscartemKR;
+        JSONObject jsonEscartemJP;
+        JSONObject jsonHobbyistKR;
+        JSONObject jsonHobbyistJP;
         JSONObject jsonW4123;
         try {
+            jsonEscartemKR = (JSONObject) parser.parse(Files.newBufferedReader(ESCARTEM_KR, StandardCharsets.UTF_8));
+            jsonEscartemJP = (JSONObject) parser.parse(Files.newBufferedReader(ESCARTEM_JP, StandardCharsets.UTF_8));
+            jsonHobbyistKR = (JSONObject) parser.parse(Files.newBufferedReader(HOBBYIST_KR, StandardCharsets.UTF_8));
+            jsonHobbyistJP = (JSONObject) parser.parse(Files.newBufferedReader(HOBBYIST_JP, StandardCharsets.UTF_8));
             jsonW4123 = (JSONObject) parser.parse(Files.newBufferedReader(W4123, StandardCharsets.UTF_8));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
 
-        Set<String> hashSet = new HashSet<>(878300);
+        Set<String> hashSet = new HashSet<>(1756600);
         try {
-            hashSet.addAll(Files.readAllLines(REAL_LIST, StandardCharsets.UTF_8));
+            hashSet.addAll(Files.readAllLines(REAL_LIST_KR, StandardCharsets.UTF_8));
+            hashSet.addAll(Files.readAllLines(REAL_LIST_JP, StandardCharsets.UTF_8));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -74,7 +382,7 @@ public class JsonMerger {
 
         Map<String, Voice> map = new HashMap<>();
 
-        for (Object e : jsonEscartem.entrySet()) {
+        for (Object e : jsonEscartemKR.entrySet()) {
             Map.Entry<String, JSONObject> entry = (Map.Entry<String, JSONObject>) e;
 
             String hash = entry.getKey();
@@ -97,7 +405,7 @@ public class JsonMerger {
         }
 
         int count = 0;
-        for (Object e : jsonHobbyist.entrySet()) {
+        for (Object e : jsonHobbyistKR.entrySet()) {
             Map.Entry<String, JSONObject> entry = (Map.Entry<String, JSONObject>) e;
 
             String hash = entry.getKey();
@@ -276,10 +584,13 @@ public class JsonMerger {
                 talker = "클로타르";
             }
             if (talker.equals("칠엽 적조의 비밀주")) {
-                talker = "스크라무슈";
+                talker = "스카라무슈";
             }
             if (talker.equals("가부키모노")) {
-                talker = "스크라무슈";
+                talker = "스카라무슈";
+            }
+            if (talker.equals("스크라무슈")) {
+                talker = "스카라무슈";
             }
             if (talker.equals("???")) {
                 talker = null;
@@ -328,19 +639,20 @@ public class JsonMerger {
                     }
                 }
                 return name;
-            case ("gcg_monster"):
-                break;
-            case ("ingame"):
-                break;
-            case ("monster"):
-                break;
-            case ("spice"):
-                break;
             case ("teamjoin"):
-                break;
-            case ("tips"):
-                break;
+                String fileName = path.getFileName().toString().toLowerCase();
+                String[] f = fileName.split("_");
+                String nam = getNameByEnglish(f[1]);
+                return nam != null && !nam.equals("npc") ? nam : null;
             case ("wq"):
+                String secon = path.subpath(1, 2).toString().substring(3);
+                String na = getNameByEnglish(secon);
+                return na != null && !na.equals("npc") ? na : null;
+            case ("gcg_monster"):
+            case ("tips"):
+            case ("spice"):
+            case ("monster"):
+            case ("ingame"):
                 break;
             default:
                 return null;
@@ -355,7 +667,7 @@ print('VO_tips 스토리중 기믹 조언\nVO_HS - 주전자\nVO_gameplay - 플�
 
     @Nullable
     private static String getNameByEnglish(String name) {
-        switch (name) {
+        switch (name.toLowerCase()) {
             case "albedo":
                 return "알베도";
             case "alhaitham":
@@ -398,7 +710,7 @@ print('VO_tips 스토리중 기믹 조언\nVO_HS - 주전자\nVO_gameplay - 플�
                 return "유라";
             case "faruzan":
                 return "파루잔";
-            case "fischi":
+            case "fischl":
                 return "피슬";
             case "freminet":
                 return "프레미네";
@@ -430,7 +742,7 @@ print('VO_tips 스토리중 기믹 조언\nVO_HS - 주전자\nVO_gameplay - 플�
                 return "클레";
             case "kokomi":
                 return "산고노미야 코코미";
-            case "kujouSara":
+            case "kujousara":
                 return "쿠죠 사라";
             case "layla":
                 return "레일라";
@@ -446,11 +758,13 @@ print('VO_tips 스토리중 기믹 조언\nVO_HS - 주전자\nVO_gameplay - 플�
                 return "모나";
             case "nahida":
                 return "나히다";
+            case "navia":
+                return "나비아";
             case "neuvillette":
                 return "느비예트";
             case "nilou":
                 return "닐루";
-            case "ningquang":
+            case "ningguang":
                 return "응광";
             case "noel":
                 return "노엘";
@@ -458,7 +772,7 @@ print('VO_tips 스토리중 기믹 조언\nVO_HS - 주전자\nVO_gameplay - 플�
                 return "진";
             case "qiqi":
                 return "치치";
-            case "raidenShogun":
+            case "raidenshogun":
                 return "라이덴 쇼군";
             case "razor":
                 return "레이저";
@@ -488,11 +802,11 @@ print('VO_tips 스토리중 기믹 조언\nVO_HS - 주전자\nVO_gameplay - 플�
                 return "향릉";
             case "xiao":
                 return "소";
-            case "xingqui":
+            case "xingqiu":
                 return "행추";
             case "xinyan":
                 return "신염";
-            case "yaeMiko":
+            case "yaemiko":
                 return "야에 미코";
             case "yanfei":
                 return "연비";
