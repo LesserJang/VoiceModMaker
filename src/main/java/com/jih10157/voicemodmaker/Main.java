@@ -537,6 +537,7 @@ public class Main {
 
         clearFolder(TEMP_PATH);
         JSONObject pathToChecksum = (JSONObject) getChecksumJson().get(language == 0 ? "kr" : "jp");
+        String prefixPath = language == 0 ? "korean\\" : "japanese\\";
         Set<Triple<Path, String, String>> pathHashChecksum = new HashSet<>();
         try (Stream<Path> stream = Files.walk(WORK_PATH)) {
             stream.filter(path -> path.getFileName().toString().endsWith(".wav"))
@@ -549,7 +550,7 @@ public class Main {
                         }
                         String checksum = (String) obj.get("checksum");
                         pathHashChecksum.add(new Triple<>(path, FNV1_64Hash.fnv1_64(
-                                changeExtension(relPath, ".wem").toString().toLowerCase()), checksum));
+                                (prefixPath + changeExtension(relPath, ".wem")).toLowerCase()), checksum));
                     });
         }
 
