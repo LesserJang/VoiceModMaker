@@ -13,7 +13,10 @@ import javax.swing.*;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -27,6 +30,7 @@ import static com.jih10157.voicemodmaker.util.WwiseUtil.wemToWavFile;
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class Main {
 
+    static final String ILLEGAL_EXP = "[\\\\:/%*?|\"<>]";
     private static final Path AUDIO_ASSETS_PATH = Paths.get("assets");
     private static final Path AUDIO_CACHE_PATH = Paths.get("cache");
     private static final Path AUDIO_CACHE_RAW_PATH = AUDIO_CACHE_PATH.resolve("raw");
@@ -43,14 +47,13 @@ public class Main {
     private static final int VOICE_EXTRACT_CHARACTER_PATH_MODE_SECOND = 5;
     private static final int VOICE_MOD_MAKE_SEL_NAME_MODE = 6;
     private static final int VOICE_MOD_MAKE_SET_LANGUAGE_MODE = 7;
+    private static final String VOICE_SET_MD5 = "5045b4d6986a8f3aafe2025f59126a38";
     private static JSONObject voiceSetsJson = null;
-    private static JSONObject hashToFolderJson = null;
-    private static JSONObject checksumJson = null;
     private static int mode = DEFAULT_MODE;
     private static String character = "";
-    private static String modName = "";
 
-//    private static final String[] SILENTS = new String[] {
+
+    //    private static final String[] SILENTS = new String[] {
 //            "아이테르", "케이아", "알베도", "미카", "베넷",
 //            "레이저", "다이루크", "백출", "행추", "중운",
 //            "종려", "소", "토마", "카미사토 아야토", "시카노인 헤이조",
@@ -58,8 +61,14 @@ public class Main {
 //            "알하이탐", "카베", "방랑자", "리니", "프레미네",
 //            "느비예트", "라이오슬리"
 //    };
+    private static String modName = "";
 
     public static void main(String[] args) throws IOException, InterruptedException {
+        if (String.join(" ", args).equalsIgnoreCase("voicelist")) {
+            VoiceList.generate();
+            return;
+        }
+
         setupFolder();
         setupTool();
         setupCache();
@@ -90,7 +99,7 @@ public class Main {
 //                                clearFolder(WORK_PATH);
 //                                loadCharacter(character);
 //                                Silent.changeSilent(TOOL_PATH.resolve("무음.wav"), WORK_PATH);
-//                                createVoiceMod(character + " 무음");
+//                                createVoiceMod(character + " 무음", 0);
 //                            }
 //                            System.out.println("완료됨");
 //                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
@@ -194,9 +203,8 @@ public class Main {
         System.exit(0);
     }
 
-    static final String ILLEGAL_EXP = "[\\\\:/%*?|\"<>]";
     public static boolean isValidFileName(String fileName) {
-        if(fileName == null || fileName.trim().isEmpty())
+        if (fileName == null || fileName.trim().isEmpty())
             return false;
 
         return !Pattern.compile(ILLEGAL_EXP).matcher(fileName).find();
@@ -214,34 +222,6 @@ public class Main {
             }
         }
         return voiceSetsJson;
-    }
-
-    public static JSONObject getHashToFolderJson() {
-        if (hashToFolderJson == null) {
-            System.out.println("hash-to-folder.json 을 불러옵니다.");
-            JSONParser parser = new JSONParser();
-            try {
-                Path mappingFile = TOOL_PATH.resolve("mapping").resolve("hash-to-folder.json");
-                hashToFolderJson = (JSONObject) parser.parse(Files.newBufferedReader(mappingFile, StandardCharsets.UTF_8));
-            } catch (ParseException | IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        return hashToFolderJson;
-    }
-
-    public static JSONObject getChecksumJson() {
-        if (checksumJson == null) {
-            System.out.println("checksum.json 을 불러옵니다.");
-            JSONParser parser = new JSONParser();
-            try {
-                Path mappingFile = TOOL_PATH.resolve("mapping").resolve("checksum.json");
-                checksumJson = (JSONObject) parser.parse(Files.newBufferedReader(mappingFile, StandardCharsets.UTF_8));
-            } catch (ParseException | IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        return checksumJson;
     }
 
     public static void setupCache() throws IOException {
@@ -297,11 +277,6 @@ public class Main {
 //                } else {
 //                    System.out.println("매핑파일에 존재하지 않는 해시값이 있습니다. 해시: " + hash);
 //                }
-            });
-        }
-        try (Stream<Path> list = Files.list(AUDIO_CACHE_RAW_PATH)) {
-            list.forEach(p -> {
-
             });
         }
     }
@@ -365,36 +340,20 @@ public class Main {
             Files.createDirectories(mappingFolder);
         }
         Path a = mappingFolder.resolve("voicesets.json");
-        if (Files.notExists(a)) {
+        if (Files.notExists(a) || !MD5.checksum(a).equals(VOICE_SET_MD5)) {
             InputStream stream = Main.class.getResourceAsStream("/voicesets.json");
             if (stream == null) {
                 throw new RuntimeException("voicesets.json 파일을 찾을 수 없습니다.");
             }
-            Files.copy(stream, a);
+            Files.copy(stream, a, StandardCopyOption.REPLACE_EXISTING);
         }
-        Path b = mappingFolder.resolve("hash-to-folder.json");
+        Path b = TOOL_PATH.resolve("무음.wav");
         if (Files.notExists(b)) {
-            InputStream stream = Main.class.getResourceAsStream("/hash-to-folder.json");
-            if (stream == null) {
-                throw new RuntimeException("hash-to-folder.json 파일을 찾을 수 없습니다.");
-            }
-            Files.copy(stream, b);
-        }
-        Path c = mappingFolder.resolve("checksum.json");
-        if (Files.notExists(c)) {
-            InputStream stream = Main.class.getResourceAsStream("/checksum.json");
-            if (stream == null) {
-                throw new RuntimeException("checksum.json 파일을 찾을 수 없습니다.");
-            }
-            Files.copy(stream, c);
-        }
-        Path d = TOOL_PATH.resolve("무음.wav");
-        if (Files.notExists(d)) {
             InputStream stream = Main.class.getResourceAsStream("/무음.wav");
             if (stream == null) {
                 throw new RuntimeException("무음.wav 파일을 찾을 수 없습니다.");
             }
-            Files.copy(stream, d);
+            Files.copy(stream, b);
         }
     }
 
@@ -406,18 +365,21 @@ public class Main {
         JSONObject mapping = (JSONObject) json.get("mapping");
         if (talkerMap.containsKey(name)) {
             List<String> hashes = Collections.unmodifiableList((JSONArray) talkerMap.get(name));
-            Set<Future<Integer>> result = hashes.parallelStream().map(s -> {
-                JSONObject obj = (JSONObject) mapping.get(s);
-                return (String) obj.get("path");
-            }).map(path -> {
-                Path dest = Paths.get(path);
-                try {
-                    return wemToWavFile(TOOL_PATH, AUDIO_CACHE_MAPPED_PATH.resolve(path),
-                            changeExtension(WORK_PATH.resolve(dest.subpath(1, dest.getNameCount())), ".wav"));
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }).collect(Collectors.toSet());
+            Set<Future<Integer>> result = hashes.parallelStream()
+                    .map(s -> {
+                        JSONObject obj = (JSONObject) mapping.get(s);
+                        return (String) obj.get("path");
+                    })
+                    .filter(path -> Files.exists(AUDIO_CACHE_MAPPED_PATH.resolve(path)))
+                    .map(path -> {
+                        Path dest = Paths.get(path);
+                        try {
+                            return wemToWavFile(TOOL_PATH, AUDIO_CACHE_MAPPED_PATH.resolve(path),
+                                    changeExtension(WORK_PATH.resolve(dest.subpath(1, dest.getNameCount())), ".wav"));
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }).collect(Collectors.toSet());
 
             while (!result.parallelStream().allMatch(Future::isDone)) {
                 System.out.println("진행중... " + result.parallelStream().filter(Future::isDone).count() + "/" + result.size());
@@ -483,9 +445,9 @@ public class Main {
                 Set<Future<Integer>> result = hashes.parallelStream().map(s -> {
                     JSONObject obj = (JSONObject) mapping.get(s);
                     return (String) obj.get("path");
-                }).filter(s -> {
-                    Path wemFile = AUDIO_CACHE_MAPPED_PATH.resolve(s);
-                    return wemFile.startsWith(targetPath);
+                }).filter(path -> {
+                    Path wemFile = AUDIO_CACHE_MAPPED_PATH.resolve(path);
+                    return wemFile.startsWith(targetPath) && Files.exists(wemFile);
                 }).map(path -> {
                     Path dest = Paths.get(path);
                     try {
@@ -509,24 +471,6 @@ public class Main {
         }
     }
 
-    // folder = work\
-    public static void generateChecksumJson(Path folder) throws IOException {
-        System.out.println("체크섬 시작");
-        Set<Path> paths = new HashSet<>();
-        try (Stream<Path> stream = Files.walk(folder)) {
-            stream.filter(p -> p.getFileName().toString().endsWith(".wav")).forEach(paths::add);
-        }
-
-        Map<String, JSONObject> result = paths.parallelStream().map(path -> {
-            String checksum = MD5.checksum(path);
-            JSONObject newObj = new JSONObject();
-            newObj.put("checksum", checksum);
-            return new AbstractMap.SimpleEntry<>(WORK_PATH.relativize(path).toString(), newObj);
-        }).collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue));
-        Files.write(WORK_PATH.resolve("checksum-jp.json"), new JSONObject(result).toJSONString().getBytes(StandardCharsets.UTF_8),
-                StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE);
-    }
-
     public static void createVoiceMod(String name, int language) throws IOException, InterruptedException {
         Path modPath = RESULT_PATH.resolve(name);
         if (Files.exists(modPath)) {
@@ -536,16 +480,18 @@ public class Main {
         Files.createDirectories(modPath);
 
         clearFolder(TEMP_PATH);
-        JSONObject pathToChecksum = (JSONObject) getChecksumJson().get(language == 0 ? "kr" : "jp");
+        JSONObject voiceSets = (JSONObject) getVoiceSetsJson().get("mapping");
         String prefixPath = language == 0 ? "korean\\" : "japanese\\";
         Set<Triple<Path, String, String>> pathHashChecksum = new HashSet<>();
         try (Stream<Path> stream = Files.walk(WORK_PATH)) {
             stream.filter(path -> path.getFileName().toString().endsWith(".wav"))
                     .forEach(path -> {
                         Path relPath = WORK_PATH.relativize(path);
-                        JSONObject obj = (JSONObject) pathToChecksum.get(relPath.toString());
+                        String fullPath = prefixPath + changeExtension(relPath, ".wem").toString().toLowerCase();
+                        String hash = FNV1_64Hash.fnv1_64(fullPath);
+                        JSONObject obj = (JSONObject) voiceSets.get(hash);
                         if (obj == null) {
-                            System.out.println("wav 파일 '" + path + "' 의 원본을 찾을 수 없습니다.");
+                            System.out.println("wav 파일 '" + path + "' 의 원본을 찾을 수 없습니다. 해시: " + hash);
                             return;
                         }
                         String checksum = (String) obj.get("checksum");
@@ -576,12 +522,11 @@ public class Main {
 
         WwiseUtil.wavToWem(TOOL_PATH, TEMP_PATH.resolve("audio"), TEMP_PATH.resolve("output"), TEMP_PATH);
 
-        JSONObject hashToFolder = getHashToFolderJson();
         try (Stream<Path> stream = Files.list(TEMP_PATH.resolve("output"))) {
             stream.forEach(p -> {
-                String folder = (String) hashToFolder.get(getFileName(p));
+                String folder = (String) voiceSets.get(getFileName(p));
                 if (folder == null) {
-                    System.out.println("파일에 해당하는 폴더를 찾지 못했습니다. 파일: " + p);
+                    System.out.println("파일에 해당하는 폴더를 찾지 못했습니다. 파일: " + p + ", 해시: " + getFileName(p));
                     return;
                 }
                 try {
