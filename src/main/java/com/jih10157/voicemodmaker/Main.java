@@ -524,7 +524,9 @@ public class Main {
 
         try (Stream<Path> stream = Files.list(TEMP_PATH.resolve("output"))) {
             stream.forEach(p -> {
-                String folder = (String) voiceSets.get(getFileName(p));
+                JSONObject obj = (JSONObject) voiceSets.get(getFileName(p));
+                String folder = (String) obj.get("folder");
+
                 if (folder == null) {
                     System.out.println("파일에 해당하는 폴더를 찾지 못했습니다. 파일: " + p + ", 해시: " + getFileName(p));
                     return;
