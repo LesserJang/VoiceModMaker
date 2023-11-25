@@ -215,7 +215,7 @@ public class Main {
             System.out.println("voicesets.json 을 불러옵니다.");
             JSONParser parser = new JSONParser();
             try {
-                Path mappingFile = TOOL_PATH.resolve("mapping").resolve("voicesets.json");
+                Path mappingFile = TOOL_PATH.resolve("voicesets.json");
                 voiceSetsJson = (JSONObject) parser.parse(Files.newBufferedReader(mappingFile, StandardCharsets.UTF_8));
             } catch (ParseException | IOException e) {
                 throw new RuntimeException(e);
@@ -323,23 +323,13 @@ public class Main {
     }
 
     public static void setupTool() throws IOException {
-        try (Stream<Path> list = Files.list(TOOL_PATH)) {
-            if (list.findAny().isPresent()) {
-                return;
-            }
-        }
-
         InputStream res = Main.class.getResourceAsStream("/tool.zip");
         if (res == null) {
             throw new RuntimeException("tool.zip 파일을 찾을 수 없습니다.");
         }
         Unzip.unzipFile(res, TOOL_PATH);
 
-        Path mappingFolder = TOOL_PATH.resolve("mapping");
-        if (Files.notExists(mappingFolder)) {
-            Files.createDirectories(mappingFolder);
-        }
-        Path a = mappingFolder.resolve("voicesets.json");
+        Path a = TOOL_PATH.resolve("voicesets.json");
         if (Files.notExists(a) || !MD5.checksum(a).equals(VOICE_SET_MD5)) {
             InputStream stream = Main.class.getResourceAsStream("/voicesets.json");
             if (stream == null) {
