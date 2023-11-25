@@ -12,10 +12,8 @@ import org.json.simple.parser.ParseException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -49,6 +47,8 @@ public class Main {
     private static final int VOICE_EXTRACT_CHARACTER_PATH_MODE_SECOND = 5;
     private static final int VOICE_MOD_MAKE_SEL_NAME_MODE = 6;
     private static final int VOICE_MOD_MAKE_SET_LANGUAGE_MODE = 7;
+    private static final int VOICE_MOD_EXTRACT_MODE = 8;
+    private static final int VOICE_REPLACE_SILENT_MODE = 9;
     private static final String VOICE_SET_MD5 = "5045b4d6986a8f3aafe2025f59126a38";
     private static JSONObject voiceSetsJson = null;
     private static int mode = DEFAULT_MODE;
@@ -75,7 +75,7 @@ public class Main {
         setupTool();
         setupCache();
 
-        System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
+        System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
 
         Scanner scanner = new Scanner(System.in);
         loop:
@@ -92,10 +92,17 @@ public class Main {
                             mode = VOICE_MOD_MAKE_SEL_NAME_MODE;
                             System.out.println("보이스 모드의 이름을 입력해주세요.");
                             break;
-//                        case "무음":
-//                            Silent.changeSilent(TOOL_PATH.resolve("무음.wav"), WORK_PATH);
-//                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
-//                            break;
+                        case "3":
+                            mode = VOICE_MOD_EXTRACT_MODE;
+                            System.out.println("추출할 보이스 모드의 절대 경로를 입력해주세요.");
+                            System.out.println("ex. C:\\Users\\이름\\Downloads\\패키지\\타이나리 TS V3");
+                            break;
+                        case "4":
+                            mode = VOICE_REPLACE_SILENT_MODE;
+                            System.out.println("주의: work 폴더 내의 모든 wav 파일을 tool\\무음.wav 파일로 교체합니다.");
+                            System.out.println("주의: 작업중인 결과물이 사라질 수 있으니 사용 전 필요하다면 백업해주시기 바랍니다.");
+                            System.out.println("계속하시겠습니까? [Y/N]");
+                            break;
 //                        case "무음리스트":
 //                            for (String character : SILENTS) {
 //                                clearFolder(WORK_PATH);
@@ -106,10 +113,8 @@ public class Main {
 //                            System.out.println("완료됨");
 //                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
 //                            break;
-                        case "3":
-                            break loop;
                         default:
-                            System.out.println("\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
+                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
                             break;
                     }
                     break;
@@ -132,7 +137,7 @@ public class Main {
                             break;
                         case "4":
                             mode = DEFAULT_MODE;
-                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
+                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
                             break;
 //                        case "5":
 //                            mode = DEFAULT_MODE;
@@ -148,12 +153,12 @@ public class Main {
                 case VOICE_EXTRACT_CHARACTER_MODE:
                     loadCharacter(str);
                     mode = DEFAULT_MODE;
-                    System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
+                    System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
                     break;
                 case VOICE_EXTRACT_PATH_MODE:
                     loadPath(str);
                     mode = DEFAULT_MODE;
-                    System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
+                    System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
                     break;
                 case VOICE_EXTRACT_CHARACTER_PATH_MODE_FIRST:
                     character = str;
@@ -164,7 +169,7 @@ public class Main {
                 case VOICE_EXTRACT_CHARACTER_PATH_MODE_SECOND:
                     loadCharacterInFolder(character, str);
                     mode = DEFAULT_MODE;
-                    System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
+                    System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
                     break;
                 case VOICE_MOD_MAKE_SEL_NAME_MODE:
                     if (isValidFileName(str)) {
@@ -175,7 +180,7 @@ public class Main {
                     } else {
                         System.out.println("'" + str + "' 은 유효한 폴더 이름이 아닙니다.");
                         mode = DEFAULT_MODE;
-                        System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
+                        System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
                     }
                     break;
                 case VOICE_MOD_MAKE_SET_LANGUAGE_MODE:
@@ -183,20 +188,40 @@ public class Main {
                         case "1":
                             createVoiceMod(modName, 0);
                             mode = DEFAULT_MODE;
-                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
+                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
                             break;
                         case "2":
                             createVoiceMod(modName, 1);
                             mode = DEFAULT_MODE;
-                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
+                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
                             break;
                         case "3":
                             mode = DEFAULT_MODE;
-                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
+                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
                             break;
                         default:
                             System.out.println("\n언어를 선택해주세요.");
                             System.out.println("1. 한국어 2. 일본어 3. 나가기");
+                            break;
+                    }
+                    break;
+                case VOICE_MOD_EXTRACT_MODE:
+                    loadFromVoiceMod(str);
+                    mode = DEFAULT_MODE;
+                    System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
+                    break;
+                case VOICE_REPLACE_SILENT_MODE:
+                    switch (str) {
+                        case "Y":
+                        case "y":
+                            changeSilent(TOOL_PATH.resolve("무음.wav"), WORK_PATH);
+                            mode = DEFAULT_MODE;
+                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
+                            break;
+                        default:
+                            System.out.println("작업이 취소되었습니다.");
+                            mode = DEFAULT_MODE;
+                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
                             break;
                     }
             }
@@ -485,7 +510,54 @@ public class Main {
         }
     }
 
+    public static void loadFromVoiceMod(String pathStr) throws IOException {
+        long mills = System.currentTimeMillis();
+        Path targetPath = Paths.get(pathStr);
+        if (!Files.exists(targetPath) || !Files.isDirectory(targetPath)) {
+            System.out.println("해당 폴더는 존재하지 않습니다. '" + targetPath + "'");
+            return;
+        }
+
+        System.out.println("다음 폴더의 보이스 추출을 시도합니다... '" + targetPath + "'");
+        JSONObject voiceSets = (JSONObject) getVoiceSetsJson().get("mapping");
+        Set<Path> paths;
+        try (Stream<Path> stream = Files.walk(targetPath)) {
+            paths = stream.filter(path -> path.getFileName().toString().endsWith(".wem"))
+                    .filter(path -> {
+                        String hash = getFileName(path);
+                        if (voiceSets.containsKey(hash)) {
+                            return true;
+                        } else {
+                            System.out.println("해당 파일의 원본 경로를 찾을 수 없습니다. 파일: " + path);
+                            return false;
+                        }
+                    })
+                    .collect(Collectors.toSet());
+        }
+
+        System.out.println("보이스 파일 개수: " + paths.size());
+
+        Set<Future<Integer>> result = paths.stream().map(path -> {
+            String hash = getFileName(path);
+            Path dest = changeExtension(Paths.get((String) ((JSONObject) voiceSets.get(hash)).get("path")), ".wav");
+            dest = WORK_PATH.resolve(dest.subpath(1, dest.getNameCount()));
+            try {
+                return wemToWavFile(TOOL_PATH, path, dest);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }).collect(Collectors.toSet());
+
+        while (!result.parallelStream().allMatch(Future::isDone)) {
+            System.out.println("진행중... " + result.parallelStream().filter(Future::isDone).count() + "/" + result.size());
+            waitFor(1, TimeUnit.SECONDS, () -> result.parallelStream().allMatch(Future::isDone));
+        }
+
+        System.out.println(result.size() + "개의 파일이 처리됨. 진행 시간: " + (System.currentTimeMillis() - mills) + "ms");
+    }
+
     public static void createVoiceMod(String name, int language) throws IOException, InterruptedException {
+        long mills = System.currentTimeMillis();
         Path modPath = RESULT_PATH.resolve(name);
         if (Files.exists(modPath)) {
             System.out.println("폴더 " + modPath + " 가 이미 존재합니다.");
@@ -534,6 +606,7 @@ public class Main {
         }
         System.out.println("변경된 보이스 파일의 개수: " + count);
 
+        System.out.println("wav 파일을 wem 파일로 변환합니다.");
         WwiseUtil.wavToWem(TOOL_PATH, TEMP_PATH.resolve("audio"), TEMP_PATH.resolve("output"), TEMP_PATH);
 
         try (Stream<Path> stream = Files.list(TEMP_PATH.resolve("output"))) {
@@ -553,6 +626,8 @@ public class Main {
                 }
             });
         }
+        System.out.println("폴더 매핑 완료");
+        System.out.println("모드 생성 완료 진행 시간: " + (System.currentTimeMillis() - mills) + "ms");
     }
 
     public static Path changeExtension(Path path, String extension) {
@@ -567,6 +642,7 @@ public class Main {
         return fileName.substring(0, fileName.lastIndexOf('.'));
     }
 
+    @SuppressWarnings("BusyWait")
     public static void waitFor(long timeout, TimeUnit timeUnit, Supplier<Boolean> end) {
         long mills = timeUnit.toMillis(timeout) + System.currentTimeMillis();
         while (!end.get() && System.currentTimeMillis() < mills) {
@@ -576,6 +652,20 @@ public class Main {
                 throw new RuntimeException(e);
             }
         }
+    }
+
+    public static void changeSilent(Path silentPath, Path dest) throws IOException {
+        Files.walkFileTree(dest, new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                try {
+                    Files.copy(silentPath, file, StandardCopyOption.REPLACE_EXISTING);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                return FileVisitResult.CONTINUE;
+            }
+        });
     }
 
     public static class Triple<T, U, V> {

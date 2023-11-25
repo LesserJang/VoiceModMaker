@@ -133,6 +133,8 @@ public class WwiseUtil {
                         tempFolder.resolve("wavtowem\\wavtowem.wproj").toAbsolutePath().toString(), "--quiet")
                 .inheritIO().start().waitFor();
 
+        System.out.println("임시 폴더에 새 프로젝트 생성 완료");
+
         StringBuilder sb = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                 "<ExternalSourcesList SchemaVersion=\"1\" Root=\"");
         sb.append(wavFolder.toAbsolutePath()).append("\">");
@@ -146,11 +148,15 @@ public class WwiseUtil {
         Path wresources = tempFolder.resolve("list.wresources");
         Files.write(wresources, sb.toString().getBytes(StandardCharsets.UTF_8), StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE);
 
+        System.out.println("프로젝트에 모든 wav 파일 경로 설정 완료");
+
         new ProcessBuilder()
                 .command(wwiseConsole.toString(), "convert-external-source",
                         tempFolder.resolve("wavtowem\\wavtowem.wproj").toAbsolutePath().toString(),
                         "--source-file", wresources.toAbsolutePath().toString(), "--output", destFolder.toAbsolutePath().toString(), "--quiet"
                 ).inheritIO().start().waitFor();
+
+        System.out.println("wem 파일 변환 완료");
 
         try (Stream<Path> wem = Files.list(destFolder.resolve("Windows"))) {
             wem.filter(p -> {
@@ -184,9 +190,5 @@ public class WwiseUtil {
     public static String getFileName(Path path) {
         String fileName = path.getFileName().toString();
         return fileName.substring(0, fileName.lastIndexOf('.'));
-    }
-
-    public static Path subPath(Path path) {
-        return path.subpath(1, path.getNameCount());
     }
 }
