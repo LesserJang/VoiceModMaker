@@ -26,7 +26,7 @@ public class WwiseUtil {
             return;
         }
 
-        Set<Future<Integer>> result = paths.parallelStream().map(path -> service.submit(() -> new ProcessBuilder()
+        Set<Future<Integer>> result = paths.stream().map(path -> service.submit(() -> new ProcessBuilder()
                 .command(tool.resolve("quickbms.exe").toString(), "-q", "-k", "-Y",
                         tool.resolve("wwise_pck_extractor.bms").toString(), path.toString(),
                         dest.resolve(getFileName(path)).toString()).start().waitFor())).collect(Collectors.toSet());
@@ -62,8 +62,9 @@ public class WwiseUtil {
         if (paths.isEmpty()) {
             return new HashSet<>();
         }
-        return paths.parallelStream().map(path -> {
-            Path wavFile = changeExtension(dest.resolve(subPath(wemPath.relativize(path))), ".wav");
+        Path rootFolder = wemPath.subpath(0, 3);
+        return paths.stream().map(path -> {
+            Path wavFile = changeExtension(dest.resolve(rootFolder.relativize(path)), ".wav");
             try {
                 return wemToWavFile(tool, path, wavFile);
             } catch (IOException e) {

@@ -9,7 +9,6 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
-import javax.swing.*;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -20,6 +19,9 @@ import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -235,9 +237,7 @@ public class Main {
 
         try (Stream<Path> list = Files.list(AUDIO_ASSETS_PATH)) {
             if (!list.findAny().isPresent()) {
-                System.out.println("assets 폴더가 비어있습니다.");
-                JOptionPane.showMessageDialog(null, "assets 폴더가 비어있습니다.", ":<", JOptionPane.ERROR_MESSAGE);
-                System.exit(0);
+                System.out.println("assets 폴더가 비어있어 캐시를 불러올 수 없습니다.");
                 return;
             }
         }
@@ -261,24 +261,45 @@ public class Main {
         JSONObject mapping = (JSONObject) getVoiceSetsJson().get("mapping");
 
         System.out.println("캐시 폴더에 wem 파일을 매핑합니다.");
+
+        Set<Path> paths;
+
         try (Stream<Path> list = Files.walk(AUDIO_CACHE_RAW_PATH)) {
-            list.filter(path -> path.getFileName().toString().endsWith(".wem")).forEach(path -> {
-                String hash = getFileName(path);
-                if (mapping.containsKey(hash)) {
-                    JSONObject obj = (JSONObject) mapping.get(hash);
-                    Path dest = AUDIO_CACHE_MAPPED_PATH.resolve((String) obj.get("path"));
-                    try {
-                        Files.createDirectories(dest.getParent());
-                        Files.move(path, dest, StandardCopyOption.REPLACE_EXISTING);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                }
-//                } else {
-//                    System.out.println("매핑파일에 존재하지 않는 해시값이 있습니다. 해시: " + hash);
-//                }
-            });
+            paths = list.filter(path -> path.getFileName().toString().endsWith(".wem"))
+                    .collect(Collectors.toSet());
         }
+
+        AtomicLong mills = new AtomicLong(System.currentTimeMillis());
+        ReentrantLock lock = new ReentrantLock();
+        AtomicInteger i = new AtomicInteger(0);
+        AtomicInteger notMapped = new AtomicInteger(0);
+        paths.parallelStream().forEach(path -> {
+            String hash = getFileName(path);
+            if (mapping.containsKey(hash)) {
+                JSONObject obj = (JSONObject) mapping.get(hash);
+                Path dest = AUDIO_CACHE_MAPPED_PATH.resolve((String) obj.get("path"));
+                try {
+                    Files.createDirectories(dest.getParent());
+                    Files.move(path, dest, StandardCopyOption.REPLACE_EXISTING);
+                    i.incrementAndGet();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            } else {
+                notMapped.incrementAndGet();
+            }
+
+            if (lock.tryLock() && System.currentTimeMillis() - mills.get() >= 500) {
+                try {
+                    mills.set(System.currentTimeMillis());
+                    System.out.println("매핑중... " + i.get() + "/" + paths.size() + " : 존재하지 않는 해시값: " + notMapped.get() + "개");
+                } finally {
+                    lock.unlock();
+                }
+            }
+        });
+
+        System.out.println("매핑 완료 " + i.get() + "/" + paths.size() + " : 존재하지 않는 해시값: " + notMapped.get() + "개");
     }
 
     public static void setupFolder() throws IOException {
@@ -388,15 +409,16 @@ public class Main {
             System.out.println("해당 폴더 또는 파일은 존재하지 않습니다. '" + targetPath + "'");
             return;
         }
-        Path dest = Paths.get(path);
-        if (dest.getNameCount() <= 1) {
-            dest = WORK_PATH;
-        } else {
-            dest = WORK_PATH.resolve(dest.subpath(1, dest.getNameCount()));
+
+        if (!targetPath.startsWith(AUDIO_CACHE_MAPPED_PATH.resolve("Korean"))
+                && !targetPath.startsWith(AUDIO_CACHE_MAPPED_PATH.resolve("Japanese"))) {
+            System.out.println("경로는 Korean 폴더 또는 Japanese 폴더로 시작해야 합니다. '" + targetPath + "'");
+            return;
         }
+
         if (Files.isDirectory(targetPath)) {
             System.out.println("다음 폴더의 보이스 추출을 시도합니다... '" + targetPath + "'");
-            Set<Future<Integer>> result = WwiseUtil.wemToWav(TOOL_PATH, targetPath, dest);
+            Set<Future<Integer>> result = WwiseUtil.wemToWav(TOOL_PATH, targetPath, WORK_PATH);
             while (!result.parallelStream().allMatch(Future::isDone)) {
                 System.out.println("진행중... " + result.parallelStream().filter(Future::isDone).count() + "/" + result.size());
                 waitFor(1, TimeUnit.SECONDS, () -> result.parallelStream().allMatch(Future::isDone));
@@ -405,6 +427,9 @@ public class Main {
             System.out.println(result.size() + "개의 파일이 처리됨. 진행 시간: " + (System.currentTimeMillis() - mills) + "ms");
         } else {
             System.out.println("다음 파일의 보이스 추출을 시도합니다... '" + targetPath + "'");
+            Path dest = Paths.get(path);
+            dest = WORK_PATH.resolve(dest.subpath(1, dest.getNameCount()));
+
             Future<Integer> result = wemToWavFile(TOOL_PATH, targetPath, changeExtension(dest, ".wav"));
 
             while (!result.isDone()) {
@@ -413,14 +438,13 @@ public class Main {
             }
             System.out.println("1개의 파일이 처리됨. 진행 시간: " + (System.currentTimeMillis() - mills) + "ms");
         }
-
     }
 
     public static void loadCharacterInFolder(String character, String pathStr) {
         long mills = System.currentTimeMillis();
         Path targetPath = AUDIO_CACHE_MAPPED_PATH.resolve(pathStr);
         if (!Files.exists(targetPath)) {
-            System.out.println("해당 폴더 또는 파일은 존재하지 않습니다. '" + targetPath + "'");
+            System.out.println("해당 폴더는 존재하지 않습니다. '" + targetPath + "'");
             return;
         }
         if (Files.isDirectory(targetPath)) {
