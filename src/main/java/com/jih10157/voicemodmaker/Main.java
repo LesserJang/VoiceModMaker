@@ -114,6 +114,7 @@ public class Main {
                     switch (str) {
                         case "1":
                             mode = VOICE_EXTRACT_CHARACTER_MODE;
+                            break;
                         case "2":
                             mode = VOICE_EXTRACT_PATH_MODE;
                             break;
