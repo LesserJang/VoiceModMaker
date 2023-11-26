@@ -75,10 +75,10 @@ public class Main {
         setupTool();
         setupCache();
 
-        System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
+        System.out.println("\n\n\n\n");
+        printGuide();
 
         Scanner scanner = new Scanner(System.in);
-        loop:
         while (scanner.hasNextLine()) {
             String str = scanner.nextLine();
             switch (mode) {
@@ -86,22 +86,15 @@ public class Main {
                     switch (str) {
                         case "1":
                             mode = VOICE_EXTRACT_MODE;
-                            System.out.println("1. 캐릭터 기반 추출 2. 폴더 또는 파일 기반 추출 3. 캐릭터 + 폴더 4. 이전으로");
                             break;
                         case "2":
                             mode = VOICE_MOD_MAKE_SEL_NAME_MODE;
-                            System.out.println("보이스 모드의 이름을 입력해주세요.");
                             break;
                         case "3":
                             mode = VOICE_MOD_EXTRACT_MODE;
-                            System.out.println("추출할 보이스 모드의 절대 경로를 입력해주세요.");
-                            System.out.println("ex. C:\\Users\\이름\\Downloads\\패키지\\타이나리 TS V3");
                             break;
                         case "4":
                             mode = VOICE_REPLACE_SILENT_MODE;
-                            System.out.println("주의: work 폴더 내의 모든 wav 파일을 tool\\무음.wav 파일로 교체합니다.");
-                            System.out.println("주의: 작업중인 결과물이 사라질 수 있으니 사용 전 필요하다면 백업해주시기 바랍니다.");
-                            System.out.println("계속하시겠습니까? [Y/N]");
                             break;
 //                        case "무음리스트":
 //                            for (String character : SILENTS) {
@@ -114,7 +107,6 @@ public class Main {
 //                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
 //                            break;
                         default:
-                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
                             break;
                     }
                     break;
@@ -122,65 +114,46 @@ public class Main {
                     switch (str) {
                         case "1":
                             mode = VOICE_EXTRACT_CHARACTER_MODE;
-                            System.out.println("한글로 캐릭터 이름을 입력해주세요.");
-                            System.out.println("ex. '타이나리' '방랑자' '카에데하라 카즈하'");
-                            break;
                         case "2":
                             mode = VOICE_EXTRACT_PATH_MODE;
-                            System.out.println("폴더 또는 파일을 입력해주세요.");
-                            System.out.println("ex. 'Korean\\VO_friendship\\VO_tighnari' 'Japanese\\VO_LQ' 'Korean\\VO_gameplay\\VO_neuvillette\\vo_neuvillette_chest_open_01.wem'");
                             break;
                         case "3":
                             mode = VOICE_EXTRACT_CHARACTER_PATH_MODE_FIRST;
-                            System.out.println("한글로 캐릭터 이름을 입력해주세요.");
-                            System.out.println("ex. '타이나리' '방랑자' '카에데하라 카즈하'");
                             break;
                         case "4":
                             mode = DEFAULT_MODE;
-                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
+                            System.out.println("\n\n\n\n");
                             break;
-//                        case "5":
-//                            mode = DEFAULT_MODE;
-//                            System.out.println("!!!");
-//                            loadPath("");
-//                            generateChecksumJson(WORK_PATH);
-//                            break;
                         default:
-                            System.out.println("\n1. 캐릭터 기반 추출 2. 폴더 또는 파일 기반 추출 3. 이전으로");
                             break;
                     }
                     break;
                 case VOICE_EXTRACT_CHARACTER_MODE:
                     loadCharacter(str);
                     mode = DEFAULT_MODE;
-                    System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
+                    System.out.println("\n\n\n\n");
                     break;
                 case VOICE_EXTRACT_PATH_MODE:
                     loadPath(str);
                     mode = DEFAULT_MODE;
-                    System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
                     break;
                 case VOICE_EXTRACT_CHARACTER_PATH_MODE_FIRST:
                     character = str;
                     mode = VOICE_EXTRACT_CHARACTER_PATH_MODE_SECOND;
-                    System.out.println("폴더를 입력해주세요.");
-                    System.out.println("ex. 'Korean\\VO_friendship\\VO_tighnari' 'Japanese\\VO_LQ'");
                     break;
                 case VOICE_EXTRACT_CHARACTER_PATH_MODE_SECOND:
                     loadCharacterInFolder(character, str);
                     mode = DEFAULT_MODE;
-                    System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
+                    System.out.println("\n\n\n\n");
                     break;
                 case VOICE_MOD_MAKE_SEL_NAME_MODE:
                     if (isValidFileName(str)) {
                         modName = str;
                         mode = VOICE_MOD_MAKE_SET_LANGUAGE_MODE;
-                        System.out.println("언어를 선택해주세요.");
-                        System.out.println("1. 한국어 2. 일본어 3. 나가기");
                     } else {
                         System.out.println("'" + str + "' 은 유효한 폴더 이름이 아닙니다.");
                         mode = DEFAULT_MODE;
-                        System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
+                        System.out.println("\n\n\n\n");
                     }
                     break;
                 case VOICE_MOD_MAKE_SET_LANGUAGE_MODE:
@@ -188,27 +161,27 @@ public class Main {
                         case "1":
                             createVoiceMod(modName, 0);
                             mode = DEFAULT_MODE;
-                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
+                            System.out.println("\n\n\n\n");
                             break;
                         case "2":
                             createVoiceMod(modName, 1);
                             mode = DEFAULT_MODE;
-                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
+                            System.out.println("\n\n\n\n");
                             break;
                         case "3":
                             mode = DEFAULT_MODE;
-                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
+                            System.out.println("\n\n\n\n");
                             break;
                         default:
-                            System.out.println("\n언어를 선택해주세요.");
-                            System.out.println("1. 한국어 2. 일본어 3. 나가기");
                             break;
                     }
                     break;
                 case VOICE_MOD_EXTRACT_MODE:
-                    loadFromVoiceMod(str);
-                    mode = DEFAULT_MODE;
-                    System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
+                    if (!str.isEmpty()) {
+                        loadFromVoiceMod(str);
+                        mode = DEFAULT_MODE;
+                        System.out.println("\n\n\n\n");
+                    }
                     break;
                 case VOICE_REPLACE_SILENT_MODE:
                     switch (str) {
@@ -216,18 +189,59 @@ public class Main {
                         case "y":
                             changeSilent(TOOL_PATH.resolve("무음.wav"), WORK_PATH);
                             mode = DEFAULT_MODE;
-                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
+                            System.out.println("\n\n\n\n");
                             break;
                         default:
                             System.out.println("작업이 취소되었습니다.");
                             mode = DEFAULT_MODE;
-                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
+                            System.out.println("\n\n\n\n");
                             break;
                     }
             }
+            printGuide();
         }
         scanner.close();
         System.exit(0);
+    }
+
+    public static void printGuide() {
+        switch (mode) {
+            case DEFAULT_MODE:
+                System.out.println("1. 보이스 추출 2. 보이스 모드 생성 3. 보이스 모드에서 추출 4. 무음 파일로 변경");
+                break;
+            case VOICE_EXTRACT_MODE:
+                System.out.println("1. 캐릭터 기반 추출 2. 폴더 또는 파일 기반 추출 3. 캐릭터 + 폴더 4. 이전으로");
+                break;
+            case VOICE_MOD_MAKE_SEL_NAME_MODE:
+                System.out.println("보이스 모드의 이름을 입력해주세요.");
+                break;
+            case VOICE_MOD_EXTRACT_MODE:
+                System.out.println("추출할 보이스 모드의 절대 경로를 입력해주세요.");
+                System.out.println("ex. C:\\Users\\이름\\Downloads\\패키지\\타이나리 TS V3");
+                break;
+            case VOICE_REPLACE_SILENT_MODE:
+                System.out.println("주의: work 폴더 내의 모든 wav 파일을 tool\\무음.wav 파일로 교체합니다.");
+                System.out.println("주의: 작업중인 결과물이 사라질 수 있으니 사용 전 필요하다면 백업해주시기 바랍니다.");
+                System.out.println("계속하시겠습니까? [Y/N]");
+                break;
+            case VOICE_EXTRACT_CHARACTER_MODE:
+            case VOICE_EXTRACT_CHARACTER_PATH_MODE_FIRST:
+                System.out.println("한글로 캐릭터 이름을 입력해주세요.");
+                System.out.println("ex. '타이나리' '방랑자' '카에데하라 카즈하'");
+                break;
+            case VOICE_EXTRACT_PATH_MODE:
+                System.out.println("폴더 또는 파일을 입력해주세요.");
+                System.out.println("ex. 'Korean\\VO_friendship\\VO_tighnari' 'Japanese\\VO_LQ' 'Korean\\VO_gameplay\\VO_neuvillette\\vo_neuvillette_chest_open_01.wem'");
+                break;
+            case VOICE_EXTRACT_CHARACTER_PATH_MODE_SECOND:
+                System.out.println("폴더를 입력해주세요.");
+                System.out.println("ex. 'Korean\\VO_friendship\\VO_tighnari' 'Japanese\\VO_LQ'");
+                break;
+            case VOICE_MOD_MAKE_SET_LANGUAGE_MODE:
+                System.out.println("언어를 선택해주세요.");
+                System.out.println("1. 한국어 2. 일본어 3. 이전으로");
+                break;
+        }
     }
 
     public static boolean isValidFileName(String fileName) {
