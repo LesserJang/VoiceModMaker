@@ -1,5 +1,6 @@
 package com.jih10157.voicemodmaker;
 
+import com.jih10157.voicemodmaker.util.EscartemFile;
 import com.jih10157.voicemodmaker.util.FNV1_64Hash;
 import com.jih10157.voicemodmaker.util.MD5;
 import org.jetbrains.annotations.Nullable;
@@ -32,11 +33,8 @@ public class JsonMerger {
     // https://github.com/w4123/GenshinVoice
     private static final Path W4123 = DATA_FOLDER.resolve("result.json");
     // https://github.com/Escartem/AnimeWwise/tree/master/mapping
-    private static final Path ESCARTEM_KR = DATA_FOLDER.resolve("Korean").resolve("mappingKorean.json");
-    private static final Path ESCARTEM_JP = DATA_FOLDER.resolve("Japanese").resolve("mappingJapanese.json");
-    private static final Path ESCARTEM_EN = DATA_FOLDER.resolve("English").resolve("mappingEnglish.json");
-    private static final Path ESCARTEM_CN = DATA_FOLDER.resolve("Chinese").resolve("mappingChinese.json");
-    // https://github.com/AI-Hobbyist/Genshin_Datasets/tree/main/Index%20%26%20Script/AI%20Hobbyist%20Version/Index/4.2
+    private static final Path ESCARTEM = DATA_FOLDER.resolve("latest.map");
+    // https://github.com/AI-Hobbyist/Genshin_Voice_Sorting_Scripts/tree/main/AI%20Hobbyist%20Version/Indexs/4.4
     private static final Path HOBBYIST_KR = DATA_FOLDER.resolve("Korean").resolve("KR.json");
     private static final Path HOBBYIST_JP = DATA_FOLDER.resolve("Japanese").resolve("JP.json");
     private static final Path HOBBYIST_EN = DATA_FOLDER.resolve("English").resolve("EN.json");
@@ -58,7 +56,6 @@ public class JsonMerger {
         Map<String, JSONObject> voiceListKr;
         Map<String, JSONObject> voiceListJp;
 
-        Set<JSONObject> jsonEscartem = new HashSet<>();
         Set<JSONObject> jsonHobbyist = new HashSet<>();
         JSONObject jsonW4123;
 
@@ -66,10 +63,6 @@ public class JsonMerger {
             voiceListKr = new HashMap<>((JSONObject) parser.parse(Files.newBufferedReader(VOICE_LIST_KR, StandardCharsets.UTF_8)));
             voiceListJp = new HashMap<>((JSONObject) parser.parse(Files.newBufferedReader(VOICE_LIST_JP, StandardCharsets.UTF_8)));
 
-            jsonEscartem.add((JSONObject) parser.parse(Files.newBufferedReader(ESCARTEM_KR, StandardCharsets.UTF_8)));
-            jsonEscartem.add((JSONObject) parser.parse(Files.newBufferedReader(ESCARTEM_JP, StandardCharsets.UTF_8)));
-            jsonEscartem.add((JSONObject) parser.parse(Files.newBufferedReader(ESCARTEM_EN, StandardCharsets.UTF_8)));
-            jsonEscartem.add((JSONObject) parser.parse(Files.newBufferedReader(ESCARTEM_CN, StandardCharsets.UTF_8)));
             jsonHobbyist.add((JSONObject) parser.parse(Files.newBufferedReader(HOBBYIST_KR, StandardCharsets.UTF_8)));
             jsonHobbyist.add((JSONObject) parser.parse(Files.newBufferedReader(HOBBYIST_JP, StandardCharsets.UTF_8)));
             jsonHobbyist.add((JSONObject) parser.parse(Files.newBufferedReader(HOBBYIST_EN, StandardCharsets.UTF_8)));
@@ -107,18 +100,15 @@ public class JsonMerger {
             System.out.println("Hobbyist 갯수: " + paths.size());
         }
 
-        for (JSONObject json : jsonEscartem) {
-            for (Object e : json.entrySet()) {
-                Map.Entry<String, JSONObject> entry = (Map.Entry<String, JSONObject>) e;
 
-                JSONObject value = entry.getValue();
-                String folder = (String) value.get("path");
-                String name = (String) value.get("name");
-                Path path = Paths.get(folder, name + ".wem");
-                paths.add(path.toString());
+        try (EscartemFile escartemFile = new EscartemFile(ESCARTEM)) {
+            for (String path : escartemFile.getMapped().values()) {
+                paths.add(path + ".wem");
             }
-            System.out.println("Escartem 갯수: " + paths.size());
+        } catch (IOException e) {
+            e.printStackTrace();
         }
+        System.out.println("Escartem 갯수: " + paths.size());
 
         Map<String, Voice> voices = paths.parallelStream()
                 .flatMap(e -> {
@@ -143,8 +133,6 @@ public class JsonMerger {
 
         System.out.println("보이스 개수: " + voices.size());
 
-        jsonEscartem = null;
-        jsonHobbyist = null;
         JSONObject jsonHobbyistKR;
         JSONObject jsonHobbyistJP;
 
@@ -524,6 +512,10 @@ print('VO_tips 스토리중 기믹 조언\nVO_HS - 주전자\nVO_gameplay - 플�
             case "charlotte":
             case "chalortte":
                 return "샤를로트";
+            case "chevreuse":
+                return "슈브르즈";
+            case "chiori":
+                return "치오리";
             case "chongyun":
                 return "중운";
             case "clorinde":
@@ -552,6 +544,8 @@ print('VO_tips 스토리중 기믹 조언\nVO_HS - 주전자\nVO_gameplay - 플�
                 return "프레미네";
             case "furina":
                 return "푸리나";
+            case "gaming":
+                return "가명";
             case "ganyu":
                 return "감우";
             case "gorou":
@@ -647,6 +641,8 @@ print('VO_tips 스토리중 기믹 조언\nVO_HS - 주전자\nVO_gameplay - 플�
                 return "향릉";
             case "xiao":
                 return "소";
+            case "xianyun":
+                return "한운";
             case "xingqiu":
                 return "행추";
             case "xinyan":

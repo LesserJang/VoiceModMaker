@@ -49,7 +49,7 @@ public class Main {
     private static final int VOICE_MOD_MAKE_SET_LANGUAGE_MODE = 7;
     private static final int VOICE_MOD_EXTRACT_MODE = 8;
     private static final int VOICE_REPLACE_SILENT_MODE = 9;
-    private static final String VOICE_SET_MD5 = "5045b4d6986a8f3aafe2025f59126a38";
+    private static final String VOICE_SET_MD5 = "a4e36b4f7d4962e746ffd370e2e17142";
     private static JSONObject voiceSetsJson = null;
     private static int mode = DEFAULT_MODE;
     private static String character = "";

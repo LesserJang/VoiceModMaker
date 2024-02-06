@@ -63,30 +63,33 @@ public class VoiceList {
         });
 
         System.out.println(System.currentTimeMillis() - mills);
+        if (!Files.exists(WORK_PATH)) {
+            Files.createDirectories(WORK_PATH);
+        }
         Files.write(WORK_PATH.resolve("voicelist.json"), new JSONObject(result).toJSONString().getBytes(StandardCharsets.UTF_8),
                 StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE);
         System.out.println(System.currentTimeMillis() - mills);
     }
 
     public static Map<String, String> process(Path pckFile) throws IOException, InterruptedException {
-        int id = i.getAndIncrement();
+//        int id = i.getAndIncrement();
         Path targetFolder = AUDIO_CACHE_RAW_PATH.resolve(getFileName(pckFile));
         int code = new ProcessBuilder()
                 .command(TOOL_PATH.resolve("quickbms.exe").toString(), "-q", "-k", "-Y",
                         TOOL_PATH.resolve("wwise_pck_extractor.bms").toString(), pckFile.toString(),
                         targetFolder.toString()).start().waitFor();
-        System.out.println("id: " + id + ", pckFile: " + pckFile + ", code: " + code + ", folder: " + targetFolder);
+//        System.out.println("id: " + id + ", pckFile: " + pckFile + ", code: " + code + ", folder: " + targetFolder);
 
 
         List<Path> wemPaths = new ArrayList<>();
         try (Stream<Path> list = Files.list(targetFolder)) {
             list.filter(path -> path.getFileName().toString().endsWith(".wem")).forEach(wemPaths::add);
         }
-        System.out.println("id: " + id + ", wem size: " + wemPaths.size());
+//        System.out.println("id: " + id + ", wem size: " + wemPaths.size());
 
         Map<String, String> checksumMap = new ConcurrentHashMap<>();
         wemPaths.parallelStream().forEach(path -> {
-            System.out.println("id: " + id + ", path: " + path);
+//            System.out.println("id: " + id + ", path: " + path);
             try {
                 Path dest = changeExtension(path, ".wav");
                 new ProcessBuilder()
@@ -97,12 +100,12 @@ public class VoiceList {
                 checksumMap.put(getFileName(dest), checksum);
                 Files.delete(dest);
                 Files.delete(path);
-                System.out.println("id: " + id + ", completed path: " + path);
+//                System.out.println("id: " + id + ", completed path: " + path);
             } catch (InterruptedException | IOException e) {
                 throw new RuntimeException(e);
             }
         });
-        System.out.println("id: " + id + ", completed");
+//        System.out.println("id: " + id + ", completed");
         return checksumMap;
     }
 
