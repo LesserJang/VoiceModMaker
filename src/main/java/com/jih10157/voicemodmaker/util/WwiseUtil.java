@@ -181,13 +181,13 @@ public class WwiseUtil {
         Files.delete(destFolder.resolve("Windows"));
     }
 
-    public static Path changeExtension(Path path, String extension) {
+    private static Path changeExtension(Path path, String extension) {
         String name = path.getFileName().toString();
         String origin = name.substring(0, name.lastIndexOf('.'));
         return path.getParent().resolve(origin + extension);
     }
 
-    public static String getFileName(Path path) {
+    private static String getFileName(Path path) {
         String fileName = path.getFileName().toString();
         return fileName.substring(0, fileName.lastIndexOf('.'));
     }

@@ -22,11 +22,8 @@ public class VoiceList {
     private static final Path AUDIO_ASSETS_PATH = Paths.get("assets");
     private static final Path AUDIO_CACHE_PATH = Paths.get("cache");
     private static final Path AUDIO_CACHE_RAW_PATH = AUDIO_CACHE_PATH.resolve("raw");
-    private static final Path AUDIO_CACHE_MAPPED_PATH = AUDIO_CACHE_PATH.resolve("mapped");
     private static final Path WORK_PATH = Paths.get("work");
     private static final Path TOOL_PATH = Paths.get("tool");
-    private static final Path TEMP_PATH = Paths.get("temp");
-    private static final Path RESULT_PATH = Paths.get("result");
 
     private static final AtomicInteger i = new AtomicInteger();
 
@@ -110,13 +107,13 @@ public class VoiceList {
     }
 
 
-    public static Path changeExtension(Path path, String extension) {
+    private static Path changeExtension(Path path, String extension) {
         String name = path.getFileName().toString();
         String origin = name.substring(0, name.lastIndexOf('.'));
         return path.getParent().resolve(origin + extension);
     }
 
-    public static String getFileName(Path path) {
+    private static String getFileName(Path path) {
         String fileName = path.getFileName().toString();
         return fileName.substring(0, fileName.lastIndexOf('.'));
     }

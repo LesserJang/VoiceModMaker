@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -49,20 +50,39 @@ public class Main {
     private static final int VOICE_MOD_MAKE_SET_LANGUAGE_MODE = 7;
     private static final int VOICE_MOD_EXTRACT_MODE = 8;
     private static final int VOICE_REPLACE_SILENT_MODE = 9;
-    private static final String VOICE_SET_MD5 = "a4e36b4f7d4962e746ffd370e2e17142";
+    private static final String VOICE_SET_MD5 = "844c6419d847df4038b3522a42710517";
     private static JSONObject voiceSetsJson = null;
     private static int mode = DEFAULT_MODE;
     private static String character = "";
 
 
-    //    private static final String[] SILENTS = new String[] {
-//            "아이테르", "케이아", "알베도", "미카", "베넷",
-//            "레이저", "다이루크", "백출", "행추", "중운",
-//            "종려", "소", "토마", "카미사토 아야토", "시카노인 헤이조",
-//            "고로", "아라타키 이토", "카에데하라 카즈하", "타이나리", "사이노",
-//            "알하이탐", "카베", "방랑자", "리니", "프레미네",
-//            "느비예트", "라이오슬리"
-//    };
+    private static final String[] SILENTS = new String[] {
+            "아이테르", "케이아", "알베도", "미카", "베넷",
+            "레이저", "다이루크", "백출", "행추", "중운",
+            "종려", "소", "토마", "카미사토 아야토", "시카노인 헤이조",
+            "고로", "아라타키 이토", "카에데하라 카즈하", "타이나리", "사이노",
+            "알하이탐", "카베", "방랑자", "리니", "프레미네",
+            "느비예트", "라이오슬리", "가명", "타르탈리아", "벤티"
+    };
+    private static final String[] ALL = new String[] {
+            "아이테르", "케이아", "알베도", "미카", "베넷",
+            "레이저", "다이루크", "백출", "행추", "중운",
+            "종려", "소", "토마", "카미사토 아야토", "시카노인 헤이조",
+            "고로", "아라타키 이토", "카에데하라 카즈하", "타이나리", "사이노",
+            "알하이탐", "카베", "방랑자", "리니", "프레미네",
+            "느비예트", "라이오슬리", "가명", "루미네", "엠버",
+            "향릉", "클레", "신염", "호두", "연비",
+            "요이미야", "데히야", "슈브르즈", "바바라", "모나",
+            "산고노미야 코코미", "야란", "캔디스", "닐루", "푸리나",
+            "설탕", "진", "사유", "파루잔", "리넷",
+            "한운", "리사", "북두", "피슬", "각청",
+            "쿠죠 사라", "라이덴 쇼군", "야에 미코", "쿠키 시노부", "도리",
+            "콜레이", "나히다", "요요", "키라라", "치치",
+            "디오나", "감우", "로자리아", "유라", "카미사토 아야카",
+            "신학", "레일라", "샤를로트", "응광", "노엘",
+            "운근", "나비아", "치오리", "타르탈리아", "벤티"
+    };
+ // 80
     private static String modName = "";
 
     public static void main(String[] args) throws IOException, InterruptedException {
@@ -99,12 +119,26 @@ public class Main {
 //                        case "무음리스트":
 //                            for (String character : SILENTS) {
 //                                clearFolder(WORK_PATH);
-//                                loadCharacter(character);
-//                                Silent.changeSilent(TOOL_PATH.resolve("무음.wav"), WORK_PATH);
-//                                createVoiceMod(character + " 무음", 0);
+//                                loadCharacterWithSilent(character);
+//                                createVoiceMod(character + " 무음", 1);
 //                            }
 //                            System.out.println("완료됨");
-//                            System.out.println("\n\n\n\n1. 보이스 추출 2. 보이스 모드 생성 3. 나가기");
+//                            break;
+//                        case "한2일":
+//                            for (String character : ALL) {
+//                                clearFolder(WORK_PATH);
+//                                loadCharacter(character);
+//                                createVoiceMod(character + " 한국어", 1);
+//                            }
+//                            System.out.println("완료됨");
+//                            break;
+//                        case "일2한":
+//                            for (String character : ALL) {
+//                                clearFolder(WORK_PATH);
+//                                loadCharacter(character);
+//                                createVoiceMod(character + " 일2한", 0);
+//                            }
+//                            System.out.println("완료됨");
 //                            break;
                         default:
                             break;
@@ -442,6 +476,44 @@ public class Main {
         }
     }
 
+    public static void loadCharacterWithSilent(String name) {
+        System.out.println("다음 캐릭터의 보이스 추출을 시도합니다... '" + name + "'");
+        long mills = System.currentTimeMillis();
+        JSONObject json = getVoiceSetsJson();
+        JSONObject talkerMap = (JSONObject) json.get("talker");
+        JSONObject mapping = (JSONObject) json.get("mapping");
+        if (talkerMap.containsKey(name)) {
+            List<String> hashes = Collections.unmodifiableList((JSONArray) talkerMap.get(name));
+            Set<Future<Integer>> result = hashes.parallelStream()
+                    .map(s -> {
+                        JSONObject obj = (JSONObject) mapping.get(s);
+                        return (String) obj.get("path");
+                    })
+                    .filter(path -> Files.exists(AUDIO_CACHE_MAPPED_PATH.resolve(path)))
+                    .map(path -> {
+                        Path dest = Paths.get(path);
+                        Path r = changeExtension(WORK_PATH.resolve(dest.subpath(1, dest.getNameCount())), ".wav");
+                        try {
+                            if (Files.notExists(r.getParent())) {
+                                Files.createDirectories(r.getParent());
+                            }
+                            Files.copy(TOOL_PATH.resolve("무음.wav"), r, StandardCopyOption.REPLACE_EXISTING);
+                            return CompletableFuture.completedFuture(0);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }).collect(Collectors.toSet());
+
+            while (!result.parallelStream().allMatch(Future::isDone)) {
+                System.out.println("진행중... " + result.parallelStream().filter(Future::isDone).count() + "/" + result.size());
+                waitFor(1, TimeUnit.SECONDS, () -> result.parallelStream().allMatch(Future::isDone));
+            }
+            System.out.println(result.size() + "개의 파일이 처리됨. 진행 시간: " + (System.currentTimeMillis() - mills) + "ms");
+        } else {
+            System.out.println("해당하는 이름의 데이터가 없습니다. '" + name + "'");
+        }
+    }
+
     public static void loadPath(String path) throws IOException {
         long mills = System.currentTimeMillis();
         Path targetPath = AUDIO_CACHE_MAPPED_PATH.resolve(path);
@@ -645,14 +717,14 @@ public class Main {
         System.out.println("모드 생성 완료 진행 시간: " + (System.currentTimeMillis() - mills) + "ms");
     }
 
-    public static Path changeExtension(Path path, String extension) {
+    private static Path changeExtension(Path path, String extension) {
         String name = path.getFileName().toString();
         String origin = name.substring(0, name.lastIndexOf('.'));
         return path.getParent().resolve(origin + extension);
     }
 
 
-    public static String getFileName(Path path) {
+    private static String getFileName(Path path) {
         String fileName = path.getFileName().toString();
         return fileName.substring(0, fileName.lastIndexOf('.'));
     }

@@ -9,7 +9,7 @@ application {
 }
 
 group = 'com.jih10157'
-version = '0.0.7'
+version = '0.0.8'
 
 repositories {
     mavenCentral()
@@ -19,7 +19,7 @@ dependencies {
     implementation('com.googlecode.json-simple:json-simple:1.1.1') {
         exclude group: 'junit'
     }
-    compileOnly 'org.jetbrains:annotations:24.0.1'
+    compileOnly 'org.jetbrains:annotations:24.1.0'
 }
 
 def targetJavaVersion = 8
