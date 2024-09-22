@@ -50,7 +50,7 @@ public class Main {
     private static final int VOICE_MOD_MAKE_SET_LANGUAGE_MODE = 7;
     private static final int VOICE_MOD_EXTRACT_MODE = 8;
     private static final int VOICE_REPLACE_SILENT_MODE = 9;
-    private static final String VOICE_SET_MD5 = "844c6419d847df4038b3522a42710517";
+    private static final String VOICE_SET_MD5 = "27602605636a6de1641f0ce47f80a0a6";
     private static JSONObject voiceSetsJson = null;
     private static int mode = DEFAULT_MODE;
     private static String character = "";
