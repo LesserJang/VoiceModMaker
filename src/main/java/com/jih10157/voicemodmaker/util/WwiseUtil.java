@@ -109,6 +109,30 @@ public class WwiseUtil {
                             throw new RuntimeException(e);
                         }
                     }).filter(Optional::isPresent).map(Optional::get).findFirst();
+            if (!wwiseFolder.isPresent()) {
+                wwiseFolder = StreamSupport.stream(FileSystems.getDefault().getRootDirectories().spliterator(), true)
+                        .map(p -> p.resolve("Program Files\\Audiokinetic")).filter(Files::exists)
+                        .map(p -> {
+                            try (Stream<Path> folders = Files.list(p)) {
+                                return folders.filter(f -> f.getFileName().toString().startsWith("Wwise"))
+                                        .findFirst();
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }).filter(Optional::isPresent).map(Optional::get).findFirst();
+            }
+            if (!wwiseFolder.isPresent()) {
+                wwiseFolder = StreamSupport.stream(FileSystems.getDefault().getRootDirectories().spliterator(), true)
+                        .map(p -> p.resolve("Audiokinetic")).filter(Files::exists)
+                        .map(p -> {
+                            try (Stream<Path> folders = Files.list(p)) {
+                                return folders.filter(f -> f.getFileName().toString().startsWith("Wwise"))
+                                        .findFirst();
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }).filter(Optional::isPresent).map(Optional::get).findFirst();
+            }
             if (wwiseFolder.isPresent()) {
                 Path file = wwiseFolder.get().resolve("Authoring\\x64\\Release\\bin\\WwiseConsole.exe");
                 if (Files.exists(file) && Files.isRegularFile(file)) {
@@ -122,7 +146,7 @@ public class WwiseUtil {
             System.out.println("Wwise 프로그램을 찾을 수 없습니다.");
             System.out.println("프로그램 설치 후에도 지속된다면");
             System.out.println("tool\\WwisePath.txt 파일을 생성해 WwiseConsole.exe 파일의 경로를 입력해주세요.");
-            System.out.println("예시: C:\\Program Files (x86)\\Audiokinetic\\Wwise 2022.1.8.8316\\Authoring\\x64\\Release\\bin");
+            System.out.println("예시: C:\\Program Files (x86)\\Audiokinetic\\Wwise 2022.1.8.8316\\Authoring\\x64\\Release\\bin\\WwiseConsole.exe");
             return;
         }
 
@@ -140,7 +164,7 @@ public class WwiseUtil {
         sb.append(wavFolder.toAbsolutePath()).append("\">");
         try (Stream<Path> list = Files.list(wavFolder)) {
             list.map(p -> p.getFileName().toString()).filter(s -> s.endsWith(".wav")).forEach(s -> {
-                sb.append("\n\t<Source Path=\"").append(s).append("\" Conversion=\"ADPCM As Input\"/>");
+                sb.append("\n\t<Source Path=\"").append(s).append("\" Conversion=\"Vorbis High Quality\"/>");
             });
         }
         sb.append("\n</ExternalSourcesList>");
