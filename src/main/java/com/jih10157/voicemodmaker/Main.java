@@ -440,6 +440,14 @@ public class Main {
             }
             Files.copy(stream, b);
         }
+        Path c = TOOL_PATH.resolve("Custom Conversion.wwu");
+        if (Files.notExists(c)) {
+            InputStream stream = Main.class.getResourceAsStream("/Custom Conversion.wwu");
+            if (stream == null) {
+                throw new RuntimeException("Custom Conversion.wwu 파일을 찾을 수 없습니다.");
+            }
+            Files.copy(stream, c);
+        }
     }
 
     public static void loadCharacter(String name) {

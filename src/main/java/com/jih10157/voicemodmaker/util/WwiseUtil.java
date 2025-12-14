@@ -159,12 +159,17 @@ public class WwiseUtil {
 
         System.out.println("임시 폴더에 새 프로젝트 생성 완료");
 
+        Files.copy(toolFolder.resolve("Custom Conversion.wwu"),
+                tempFolder.resolve("wavtowem\\Conversion Settings\\Custom Conversion.wwu"),
+                StandardCopyOption.REPLACE_EXISTING);
+        System.out.println("프로젝트에 변환 세팅 추가 완료");
+
         StringBuilder sb = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                 "<ExternalSourcesList SchemaVersion=\"1\" Root=\"");
         sb.append(wavFolder.toAbsolutePath()).append("\">");
         try (Stream<Path> list = Files.list(wavFolder)) {
             list.map(p -> p.getFileName().toString()).filter(s -> s.endsWith(".wav")).forEach(s -> {
-                sb.append("\n\t<Source Path=\"").append(s).append("\" Conversion=\"Vorbis High Quality\"/>");
+                sb.append("\n\t<Source Path=\"").append(s).append("\" Conversion=\"WavToWem\"/>");
             });
         }
         sb.append("\n</ExternalSourcesList>");
